@@ -1,0 +1,65 @@
+[project]
+name = "data-platform"
+version = "0.1.0"
+description = "The data platform for American Beauty Institute."
+authors = [
+    {name = "Kim, Andrew", email = "andrewkimka@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "coverage>=7.9.1",
+    "mypy>=1.16.1",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "ruff>=0.12.0",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["data-platform"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
+
+[tool.mypy]
+files = ["data-platform", "tests"]
+cache_dir = "${HOME}/.mypy_cache"
+ignore_errors = false
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+include = ["data-platform"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+fix = true
+unsafe-fixes = true
+
+lint.select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "SIM", # simplify
+  "D",   # pydocstyle
+  "PL",  # pylint-like
+  "C90", # mccabe
+]
+
+lint.ignore = []
+
+exclude = ["tests/data", ".venv", "build", "dist"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # or "numpy" or "pep257"

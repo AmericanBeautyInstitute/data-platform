@@ -1,0 +1,16 @@
+# Absolute paths
+/.coverage
+/.env
+/.pytest_cache
+/.venv
+/dist
+/venv
+/scratch/*
+/gcp_service_account_key.json
+
+# Patterns
+__pycache__
+.DS_Store
+
+# Exclusions
+!/scratch/README.md

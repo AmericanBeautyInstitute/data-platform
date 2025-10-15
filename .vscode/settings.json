@@ -1,0 +1,8 @@
+{
+    "cucumber.features": [
+        "test_acceptance/data-platform/features/*.feature"
+    ],
+    "cucumber.glue": [
+        "features/**/*.py"
+    ]
+}
