@@ -7,7 +7,13 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
-dependencies = []
+dependencies = [
+    "dbt-bigquery>=1.10.2",
+    "google-cloud-bigquery>=3.38.0",
+    "google-cloud-storage>=2.19.0",
+    "prefect>=3.4.23",
+    "prefect-dbt>=0.7.8",
+]
 
 [dependency-groups]
 dev = [
