@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-import polars as pl
+import pyarrow as pa
 
 
 class Extractor(ABC):
@@ -12,7 +12,7 @@ class Extractor(ABC):
 
     def __init__(
         self,
-        credentials_file_path: str | Path,
+        credentials_file_path: Path | str,
         source: str,
         config: dict[str, Any] | None = None,
     ) -> None:
@@ -22,6 +22,6 @@ class Extractor(ABC):
         self.source = source
 
     @abstractmethod
-    def extract(self) -> pl.DataFrame:
+    def extract(self) -> pa.Table:
         """Extracts data from the source and returns it in a uniform format."""
         pass
