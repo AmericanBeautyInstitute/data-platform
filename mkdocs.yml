@@ -1,6 +1,17 @@
-site_name: American Beauty Institute Data Platform
+site_name: American Beauty Institute
+
+repo_url: https://github.com/AmericanBeautyInstitute/data-platform
+repo_name: data-platform
+
 theme:
   name: material
+  logo: assets/logo.png
+  features:
+    - search.highlight
+    - search.suggest
+  palette:
+    primary: indigo
 
 nav:
   - Home: index.md
+  - About: about.md

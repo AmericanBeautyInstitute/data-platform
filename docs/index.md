@@ -1,17 +1,23 @@
-# Welcome to MkDocs
+![American Beauty Institute](assets/full_logo.png)
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+[![CI](https://github.com/AmericanBeautyInstitute/data-platform/actions/workflows/ci.yaml/badge.svg)](https://github.com/AmericanBeautyInstitute/data-platform/actions)
 
-## Commands
+---
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+**Documentation:** [https://americanbeautyinstitute.readthedocs.io/](https://americanbeautyinstitute.readthedocs.io/)
 
-## Project layout
+**Source Code:** [https://github.com/AmericanBeautyInstitute](https://github.com/AmericanBeautyInstitute)
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+**Website:** [https://beautyinstitute.us/](https://beautyinstitute.us/)
+
+---
+
+This is the official documentation for all products built by the American Beauty Institute Engineering team.
+
+---
+
+## **Data Platform**
+
+### Introduction
+
+This repository hosts all the infrastructure and codebase that support American Beauty Institute's data platform and analytics operations.
