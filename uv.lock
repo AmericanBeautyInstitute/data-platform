@@ -409,13 +409,15 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "coverage" },
-    { name = "mkdocs-material" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+]
+docs = [
+    { name = "mkdocs-material" },
 ]
 
 [package.metadata]
@@ -431,7 +433,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.9.1" },
-    { name = "mkdocs-material", specifier = ">=9.6.22" },
     { name = "mypy", specifier = ">=1.16.1" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "pytest", specifier = ">=8.4.1" },
@@ -439,6 +440,7 @@ dev = [
     { name = "pytest-mock", specifier = ">=3.14.1" },
     { name = "ruff", specifier = ">=0.12.0" },
 ]
+docs = [{ name = "mkdocs-material", specifier = ">=9.6.22" }]
 
 [[package]]
 name = "dateparser"

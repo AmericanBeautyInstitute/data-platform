@@ -1,1 +1,6 @@
-site_name: My Docs
+site_name: American Beauty Institute Data Platform
+theme:
+  name: material
+
+nav:
+  - Home: index.md
