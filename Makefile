@@ -8,7 +8,12 @@ build:
 	make reformat
 	make lint
 	make type_check
+	make docs
 	make test
+
+docs:
+	mkdir -p scratch/tmp/site
+	uv run mkdocs build --clean -d scratch/tmp/site
 
 lint:
 	uv run ruff check --fix .
@@ -17,7 +22,7 @@ reformat:
 	uv run ruff format .
 
 setup:
-	uv sync
+	uv sync --all-groups
 	uv run pre-commit install --install-hooks
 
 test:
@@ -30,6 +35,7 @@ type_check:
 
 .PHONY: \
 	build \
+	docs \
 	help \
 	lint \
 	reformat \
