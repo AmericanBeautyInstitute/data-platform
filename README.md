@@ -10,4 +10,14 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
+---
+
+---
+
+**Documentation:** [https://americanbeautyinstitute.readthedocs.io/](https://americanbeautyinstitute.readthedocs.io/)
+
+**Source Code:** [https://github.com/AmericanBeautyInstitute](https://github.com/AmericanBeautyInstitute)
+
+---
+
 Repository for all data related code for American Beauty Institute.
