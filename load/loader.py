@@ -25,7 +25,7 @@ class Loader(ABC):
 
     @property
     def client(self) -> Any:
-        """Lazy-loaded authenticated client."""
+        """Lazy-loads authenticated client."""
         if self._client is None:
             self._client = self._authenticate()
         return self._client
