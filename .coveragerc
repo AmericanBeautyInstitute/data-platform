@@ -1,0 +1,8 @@
+[run]
+source =
+    extract
+    load
+    transform
+    orchestration
+    helpers
+branch = True
