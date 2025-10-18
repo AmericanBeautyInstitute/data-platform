@@ -34,7 +34,7 @@ class GoogleCloudStorageLoader(Loader):
         parquet_buffer = table_to_parquet_buffer(data)
         blob.upload_from_file(parquet_buffer, content_type="application/octet-stream")
 
-        print(f"Uploaded Parquet file to gs://{bucket_name}/{blob_name}")
+        print(f"Uploaded Parquet file to gs://{bucket_name}/{data_file_name}")
 
     def _authenticate(self) -> storage.Client:
         """Authenticates and returns either the client or service object."""
