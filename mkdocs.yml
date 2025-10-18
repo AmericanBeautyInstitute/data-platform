@@ -8,6 +8,7 @@ theme:
   favicon: assets/favicon.png
   logo: assets/favicon.png
   features:
+    - navigation.footer
     - navigation.indexes
     - search.highlight
     - search.suggest
@@ -29,6 +30,20 @@ nav:
         - Data Sources: data-platform/data-ingestion/data-sources.md
         - Extractors: data-platform/data-ingestion/extractors.md
         - Authentication: data-platform/data-ingestion/authentication.md
+
+copyright: © American Beauty Institute 2025
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AmericanBeautyInstitute
+    - icon: fontawesome/brands/instagram
+      link: https://www.instagram.com/abischoolny/
+    - icon: fontawesome/brands/facebook
+      link: https://www.facebook.com/americanbeautyinst
+    - icon: fontawesome/brands/youtube
+      link: https://www.youtube.com/channel/UCA_Sm9CHHkqYeWJ0WmVFjTg
 
 extra_css:
   - stylesheets/extra.css
