@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-import pyarrow as pa
-
 
 class Loader(ABC):
     """Abstract base class for loaders."""
@@ -20,10 +18,18 @@ class Loader(ABC):
         self.credentials_file_path = Path(credentials_file_path)
 
     @abstractmethod
-    def load(
-        self,
-        data: pa.Table | Path | str,
-        destination: str,
-    ) -> None:
+    def load(self, *args: Any, **kwargs: Any) -> None:
         """Loads data into the specified destination."""
+        pass
+
+    @property
+    def client(self) -> Any:
+        """Lazy-loaded authenticated client."""
+        if self._client is None:
+            self._client = self._authenticate()
+        return self._client
+
+    @abstractmethod
+    def _authenticate(self) -> Any:
+        """Authenticates and returns the client/service object."""
         pass
