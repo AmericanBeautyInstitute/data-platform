@@ -21,7 +21,7 @@ class Extractor(ABC):
         self._client: Any | None = None
 
     @abstractmethod
-    def extract(self, **kwargs) -> pa.Table:
+    def extract(self, *args: Any, **kwargs: Any) -> pa.Table:
         """Extracts data from the source and returns it in a uniform format."""
         pass
 
