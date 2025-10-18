@@ -12,8 +12,6 @@
 
 ---
 
----
-
 **Documentation:** [https://americanbeautyinstitute.readthedocs.io/](https://americanbeautyinstitute.readthedocs.io/)
 
 **Source Code:** [https://github.com/AmericanBeautyInstitute](https://github.com/AmericanBeautyInstitute)
