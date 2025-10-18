@@ -1,21 +1,37 @@
 site_name: American Beauty Institute
 
-repo_url: https://github.com/AmericanBeautyInstitute/data-platform
-repo_name: data-platform
+repo_url: https://github.com/AmericanBeautyInstitute
+repo_name: GitHub
 
 theme:
   name: material
   favicon: assets/favicon.png
   logo: assets/favicon.png
   features:
+    - navigation.indexes
     - search.highlight
     - search.suggest
   palette:
     primary: indigo
+    icon:
+  icon:
+    repo: fontawesome/brands/github
 
 nav:
   - Home: index.md
   - About: about.md
+  - Projects:
+    - Data Platform:
+      - Overview: data-platform/overview.md
+      - Architecture: data-platform/architecture.md
+      - Data Ingestion:
+        - data-platform/data-ingestion/index.md
+        - Data Sources: data-platform/data-ingestion/data-sources.md
+        - Extractors: data-platform/data-ingestion/extractors.md
+        - Authentication: data-platform/data-ingestion/authentication.md
+      - Data Models: data-platform/data-models.md
+    - Dashboard:
+      - Overview: dashboard/index.md
 
 extra_css:
   - stylesheets/extra.css

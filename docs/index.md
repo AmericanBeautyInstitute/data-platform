@@ -16,8 +16,8 @@ This is the official documentation for all products built by the American Beauty
 
 ---
 
-## **Data Platform**
+## Data Platform
 
-### Introduction
-
-This repository hosts all the infrastructure and codebase that support American Beauty Institute's data platform and analytics operations.
+#### 1. [Overview](data-platform/overview.md)
+#### 2. [Architecture](data-platform/architecture.md)
+#### 3. [Data Ingestion](data-platform/data-ingestion/index.md)
