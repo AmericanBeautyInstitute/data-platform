@@ -21,6 +21,9 @@ lint:
 reformat:
 	uv run ruff format .
 
+serve:
+	uv run mkdocs serve
+
 setup:
 	uv sync --all-groups
 	uv run pre-commit install --install-hooks
