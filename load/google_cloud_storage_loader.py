@@ -8,7 +8,7 @@ from google.cloud import storage
 from helpers.google_cloud_platform import authenticate_google_cloud_storage
 from load.loader import Loader
 from utils.parquet import table_to_parquet_buffer
-from utils.timestamp import utc_timestamp
+from utils.timestamp import generate_timestamp
 
 
 class GoogleCloudStorageLoader(Loader):
@@ -23,7 +23,7 @@ class GoogleCloudStorageLoader(Loader):
     ) -> None:
         """Loads data into the specified destination."""
         if timestamp:
-            data_file_name = f"{blob_name}_{utc_timestamp()}.parquet"
+            data_file_name = f"{blob_name}_{generate_timestamp()}.parquet"
         else:
             data_file_name = f"{blob_name}.parquet"
 
