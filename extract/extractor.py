@@ -34,5 +34,5 @@ class Extractor(ABC):
 
     @abstractmethod
     def _authenticate(self) -> Any:
-        """Authenticates and returns the client/service object."""
+        """Authenticates and returns either the client or service object."""
         pass
