@@ -22,16 +22,13 @@ nav:
   - About: about.md
   - Projects:
     - Data Platform:
-      - Overview: data-platform/overview.md
+      - data-platform/index.md
       - Architecture: data-platform/architecture.md
       - Data Ingestion:
         - data-platform/data-ingestion/index.md
         - Data Sources: data-platform/data-ingestion/data-sources.md
         - Extractors: data-platform/data-ingestion/extractors.md
         - Authentication: data-platform/data-ingestion/authentication.md
-      - Data Models: data-platform/data-models.md
-    - Dashboard:
-      - Overview: dashboard/index.md
 
 extra_css:
   - stylesheets/extra.css
