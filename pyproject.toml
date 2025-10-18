@@ -16,6 +16,7 @@ dependencies = [
     "prefect>=3.4.23",
     "prefect-dbt>=0.7.8",
     "pyarrow>=21.0.0",
+    "python-dotenv>=1.1.1",
 ]
 
 [dependency-groups]

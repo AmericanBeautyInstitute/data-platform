@@ -406,6 +406,7 @@ dependencies = [
     { name = "prefect" },
     { name = "prefect-dbt" },
     { name = "pyarrow" },
+    { name = "python-dotenv" },
 ]
 
 [package.dev-dependencies]
@@ -432,6 +433,7 @@ requires-dist = [
     { name = "prefect", specifier = ">=3.4.23" },
     { name = "prefect-dbt", specifier = ">=0.7.8" },
     { name = "pyarrow", specifier = ">=21.0.0" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
 ]
 
 [package.metadata.requires-dev]
