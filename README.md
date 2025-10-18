@@ -2,7 +2,7 @@
 
 <h1 align="center">
   <img
-    src="https://raw.githubusercontent.com/americanbeautyinstitute/data-platform/main/docs/assets/full_logo.png" alt="American Beauty Institute Logo">
+    src="https://raw.githubusercontent.com/americanbeautyinstitute/data-platform/main/docs/assets/logo_small.png" alt="American Beauty Institute Logo">
   <br>
 </h1>
 
