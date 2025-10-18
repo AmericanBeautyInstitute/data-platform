@@ -1,4 +1,4 @@
-![American Beauty Institute](assets/full_logo.png)
+![American Beauty Institute](assets/logo_small.png)
 
 [![CI](https://github.com/AmericanBeautyInstitute/data-platform/actions/workflows/ci.yaml/badge.svg)](https://github.com/AmericanBeautyInstitute/data-platform/actions)
 
