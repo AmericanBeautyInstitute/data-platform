@@ -16,6 +16,7 @@ class Loader(ABC):
         """Initializes the Loader."""
         self.config = config or {}
         self.credentials_file_path = Path(credentials_file_path)
+        self._client: Any | None = None
 
     @abstractmethod
     def load(self, *args: Any, **kwargs: Any) -> None:
