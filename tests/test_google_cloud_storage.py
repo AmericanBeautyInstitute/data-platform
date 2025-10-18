@@ -73,7 +73,8 @@ def test_loader_upload(
     loader.load(
         data=sample_table,
         bucket_name="mock_bucket",
-        blob_name="students.parquet",
+        blob_name="students",
+        timestamp=False,
     )
 
     assert_bucket_called_correctly(mock_client, "mock_bucket")
