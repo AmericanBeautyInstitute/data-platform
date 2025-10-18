@@ -32,11 +32,11 @@ jobs:
 
       - name: Build
         run: |
-          uv sync
+          uv sync --all-groups
           uv run ruff format tests
           uv run ruff check tests
           uv run mypy tests --ignore-missing-import
-          uv run pytest --cov=data-platform --cov-report term --cov-report xml
+          uv run pytest --cov-report term --cov-report xml
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
