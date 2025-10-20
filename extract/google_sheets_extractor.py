@@ -11,7 +11,7 @@ class GoogleSheetsExtractor(Extractor):
     """Extracts data from Google Sheets."""
 
     def extract(self, spreadsheet_id: str, sheet_name: str) -> pa.Table:
-        """Fetches data from a Google Sheet and returns it as a PyArrow table."""
+        """Extracts data from a Google Sheet and returns it as a PyArrow table."""
         service = self.client
         data = self.get_google_sheets_data(service, spreadsheet_id, sheet_name)
         table = self._convert_list_to_table(data)
