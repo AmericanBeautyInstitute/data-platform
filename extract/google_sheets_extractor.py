@@ -8,7 +8,7 @@ from helpers.google_cloud_platform import authenticate_google_sheets
 
 
 class GoogleSheetsExtractor(Extractor):
-    """Extracts data from Google Sheets."""
+    """Extractor for Google Sheets."""
 
     def extract(self, spreadsheet_id: str, sheet_name: str) -> pa.Table:
         """Extracts data from a Google Sheet and returns it as a PyArrow table."""

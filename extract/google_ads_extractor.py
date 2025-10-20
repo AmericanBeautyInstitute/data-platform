@@ -11,7 +11,7 @@ from helpers.google_cloud_platform import authenticate_google_ads
 
 
 class GoogleAdsExtractor(Extractor):
-    """Extracts data from Google Ads using GAQL queries."""
+    """Extractor for Google Ads."""
 
     def extract(
         self,
@@ -19,7 +19,7 @@ class GoogleAdsExtractor(Extractor):
         query: str,
         login_customer_id: str | None = None,
     ) -> pa.Table:
-        """Executes a GAQL query and returns results as a PyArrow table."""
+        """Extracts data from Goolge Ads and returns results as a PyArrow table."""
         google_ads_client = self.client
         ga_service = google_ads_client.get_service("GoogleAdsService")
 
