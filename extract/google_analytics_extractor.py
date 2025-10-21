@@ -54,21 +54,12 @@ class GoogleAnalyticsExtractor(Extractor):
         metric_names: list[str],
     ) -> pa.Table:
         """Converts the Google Analytics API response to PyArrow table."""
-        rows = []
+        field_mapping = {
+            "dimension_values": dimension_names,
+            "metric_values": metric_names,
+        }
 
-        for row in response.rows:
-            row_dict = {}
-
-            # Extract dimension values
-            for i, dimension_name in enumerate(dimension_names):
-                row_dict[dimension_name] = row.dimension_values[i].value
-
-            # Extract metric values
-            for i, metric_name in enumerate(metric_names):
-                row_dict[metric_name] = row.metric_values[i].value
-
-            rows.append(row_dict)
-
+        rows = [self._extract_row_data(row, field_mapping) for row in response.rows]
         table = self._build_table_from_dicts(rows)
         return table
 
@@ -103,3 +94,18 @@ class GoogleAnalyticsExtractor(Extractor):
 
         sorted_keys = sorted(all_keys)
         return sorted_keys
+
+    def _extract_row_data(
+        self,
+        row: Any,
+        field_mapping: dict[str, list[str]],
+    ) -> dict[str, Any]:
+        """Extracts data from a single Google Analytics response row."""
+        row_dict: dict[str, Any] = {}
+
+        for value_type, column_names in field_mapping.items():
+            values = getattr(row, value_type)
+            for i, column_name in enumerate(column_names):
+                row_dict[column_name] = values[i].value
+
+        return row_dict
