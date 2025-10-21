@@ -71,19 +71,10 @@ class GoogleAdsExtractor(Extractor):
             empty_table = pa.table({})
             return empty_table
 
-        all_column_names = self._collect_all_keys(rows)
+        all_column_names = self._get_column_names(rows)
         columns = self._build_columns(rows, all_column_names)
         table = pa.table(columns)
         return table
-
-    def _collect_all_keys(self, rows: list[dict[str, Any]]) -> list[str]:
-        """Collects all unique keys from rows, handling sparse data."""
-        all_keys: set[str] = set()
-        for row in rows:
-            all_keys.update(row.keys())
-
-        sorted_keys = sorted(all_keys)
-        return sorted_keys
 
     def _flatten_nested_dict(
         self,
@@ -108,6 +99,15 @@ class GoogleAdsExtractor(Extractor):
                 flattened[full_key] = field_value
 
         return flattened
+
+    def _get_column_names(self, rows: list[dict[str, Any]]) -> list[str]:
+        """Gets all unique column names across rows, handling sparse data."""
+        column_names: set[str] = set()
+        for row in rows:
+            column_names.update(row.keys())
+
+        sorted_column_names = sorted(column_names)
+        return sorted_column_names
 
     def _is_nested_dict(self, value: Any) -> bool:
         """Checks if a value is a nested dictionary."""
