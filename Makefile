@@ -4,7 +4,7 @@ help:
 ################################################################################
 
 build:
-	uv sync
+	uv sync --all-groups
 	make reformat
 	make lint
 	make type_check
