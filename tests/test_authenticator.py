@@ -6,15 +6,18 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from helpers.authenticator import google_ads_authenticator
+from helpers.authenticator import (
+    google_ads_authenticator,
+    google_analytics_authenticator,
+)
+
+tmp_dir = Path("scratch/tmp")
+tmp_dir.mkdir(parents=True, exist_ok=True)
 
 
 @pytest.fixture
-def mock_credentials_file_path() -> Path:
-    """Creates a temporary credentials file path."""
-    tmp_dir = Path("scratch/tmp")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-
+def mock_google_ads_credentials_file_path() -> Path:
+    """Creates a temporary credentials file path for Google Ads."""
     credentials = """\
 developer_token: abcdef123456
 refresh_token: 1//0abcdefghijklABCDEF
@@ -28,20 +31,50 @@ use_proto_plus: true
 
 
 @pytest.fixture
+def mock_gcp_service_account_key_file_path() -> Path:
+    """Creates a temporary credentials file path."""
+    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
+    credentials_file_path.write_text('{"type": "service_account"}')
+    return credentials_file_path
+
+
+@pytest.fixture
 def mock_google_ads_client() -> MagicMock:
     """Mocks the Google Ads client."""
     mock_client = MagicMock()
     return mock_client
 
 
+@pytest.fixture
+def mock_google_analytics_client() -> MagicMock:
+    """Mocks the Google Analytics client."""
+    mock_client = MagicMock()
+    return mock_client
+
+
 def test_google_ads_authenticator(
     mocker: MockerFixture,
-    mock_credentials_file_path: Path,
+    mock_google_ads_credentials_file_path: Path,
     mock_google_ads_client: MagicMock,
 ) -> None:
     """Tests Google Ads authentication."""
     target = "helpers.authenticator.GoogleAdsClient"
     mocker.patch(target=target, return_value=mock_google_ads_client)
 
-    google_ads_client = google_ads_authenticator(mock_credentials_file_path)
+    google_ads_client = google_ads_authenticator(mock_google_ads_credentials_file_path)
     assert google_ads_client is not None
+
+
+def test_google_analytics_authenticator(
+    mocker: MockerFixture,
+    mock_gcp_service_account_key_file_path: Path,
+    mock_google_analytics_client: MagicMock,
+) -> None:
+    """Tests Google Analytics authentication."""
+    target = "helpers.authenticator.BetaAnalyticsDataClient"
+    mocker.patch(target=target, return_value=mock_google_analytics_client)
+
+    google_analytics_client = google_analytics_authenticator(
+        mock_gcp_service_account_key_file_path
+    )
+    assert google_analytics_client is not None
