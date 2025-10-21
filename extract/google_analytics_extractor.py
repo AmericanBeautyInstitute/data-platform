@@ -60,17 +60,22 @@ class GoogleAnalyticsExtractor(Extractor):
         }
 
         rows = [self._extract_row_data(row, field_mapping) for row in response.rows]
-        table = self._build_table_from_dicts(rows)
+        table = self._build_table_from_dicts(rows, dimension_names, metric_names)
         return table
 
-    def _build_table_from_dicts(self, rows: list[dict[str, Any]]) -> pa.Table:
+    def _build_table_from_dicts(
+        self,
+        rows: list[dict[str, Any]],
+        dimension_names: list[str],
+        metric_names: list[str],
+    ) -> pa.Table:
         """Builds a PyArrow table from a list of dictionaries."""
         if not rows:
             empty_table = pa.table({})
             return empty_table
 
-        all_column_names = self._collect_all_keys(rows)
-        columns = self._build_columns(rows, all_column_names)
+        column_names = dimension_names + metric_names
+        columns = self._build_columns(rows, column_names)
         table = pa.table(columns)
         return table
 
@@ -85,15 +90,6 @@ class GoogleAnalyticsExtractor(Extractor):
             column_data = [row.get(column_name) for row in rows]
             columns[column_name] = column_data
         return columns
-
-    def _collect_all_keys(self, rows: list[dict[str, Any]]) -> list[str]:
-        """Collects all unique keys from rows, handling sparse data."""
-        all_keys: set[str] = set()
-        for row in rows:
-            all_keys.update(row.keys())
-
-        sorted_keys = sorted(all_keys)
-        return sorted_keys
 
     def _extract_row_data(
         self,
