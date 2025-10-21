@@ -97,7 +97,7 @@ class GoogleAnalyticsExtractor(Extractor):
 
     def _collect_all_keys(self, rows: list[dict[str, Any]]) -> list[str]:
         """Collects all unique keys from rows, handling sparse data."""
-        all_keys = set()
+        all_keys: set[str] = set()
         for row in rows:
             all_keys.update(row.keys())
 
