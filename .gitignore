@@ -6,7 +6,6 @@
 /dist
 /venv
 /scratch/*
-/gcp_service_account_key.json
 
 # Patterns
 __pycache__
@@ -14,3 +13,7 @@ __pycache__
 
 # Exclusions
 !/scratch/README.md
+
+# Secrets
+/gcp_service_account_key.json
+/google-ads.yaml
