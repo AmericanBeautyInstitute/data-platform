@@ -17,8 +17,15 @@ def mock_credentials_file_path() -> Path:
     tmp_dir = Path("scratch/tmp")
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
-    credentials_file_path.write_text('{"type": "service_account"}')
+    credentials = """\
+developer_token: abcdef123456
+refresh_token: 1//0abcdefghijklABCDEF
+client_id: 123456-abcdef.apps.googleusercontent.com
+client_secret: aBcDeFgHiJkL
+use_proto_plus: true
+"""
+    credentials_file_path = tmp_dir / "mock_google-ads.yaml"
+    credentials_file_path.write_text(credentials)
     return credentials_file_path
 
 
