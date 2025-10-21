@@ -33,7 +33,7 @@ def mock_sheets_data() -> dict[str, list[list[str]]]:
     }
 
 
-def test_extractiom(
+def test_extraction(
     mocker: MockerFixture,
     mock_credentials_file_path: Path,
     mock_sheets_data: dict[str, list[list[str]]],
