@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from helpers.google_cloud_platform import authenticate_google_ads
+from helpers.authenticator import google_ads_authenticator
 
 
 @pytest.fixture
@@ -28,20 +28,20 @@ use_proto_plus: true
 
 
 @pytest.fixture
-def mock_google_ads_client():
+def mock_google_ads_client() -> MagicMock:
     """Mocks the Google Ads client."""
     mock_client = MagicMock()
     return mock_client
 
 
-def test_authenticate_google_ads(
+def test_google_ads_authenticator(
     mocker: MockerFixture,
     mock_credentials_file_path: Path,
     mock_google_ads_client: MagicMock,
 ) -> None:
     """Tests Google Ads authentication."""
-    target = "helpers.google_cloud_platform.GoogleAdsClient"
+    target = "helpers.authenticator.GoogleAdsClient"
     mocker.patch(target=target, return_value=mock_google_ads_client)
 
-    google_ads_client = authenticate_google_ads(mock_credentials_file_path)
+    google_ads_client = google_ads_authenticator(mock_credentials_file_path)
     assert google_ads_client is not None

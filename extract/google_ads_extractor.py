@@ -7,7 +7,7 @@ from google.ads.googleads.client import GoogleAdsClient
 from google.protobuf.json_format import MessageToDict
 
 from extract.extractor import Extractor
-from helpers.google_cloud_platform import authenticate_google_ads
+from helpers.authenticator import google_ads_authenticator
 
 
 class GoogleAdsExtractor(Extractor):
@@ -34,7 +34,7 @@ class GoogleAdsExtractor(Extractor):
 
     def _authenticate(self) -> GoogleAdsClient:
         """Authenticates and returns Google Ads client."""
-        google_ads_client = authenticate_google_ads(self.credentials_file_path)
+        google_ads_client = google_ads_authenticator(self.credentials_file_path)
         return google_ads_client
 
     def _convert_protobuf_to_table(self, response: Any) -> pa.Table:

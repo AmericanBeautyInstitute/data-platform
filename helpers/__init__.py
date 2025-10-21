@@ -2,10 +2,10 @@
 
 # from .google_cloud_platform import (
 #     authenticate_google_cloud_storage,
-#     authenticate_google_sheets,
+#     google_sheets_authenticator,
 # )
 
 # all = [
 #     authenticate_google_cloud_storage,
-#     authenticate_google_sheets,
+#     google_sheets_authenticator,
 # ]

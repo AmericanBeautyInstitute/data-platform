@@ -5,7 +5,7 @@ from pathlib import Path
 import pyarrow as pa
 from google.cloud import storage
 
-from helpers.google_cloud_platform import authenticate_google_cloud_storage
+from helpers.authenticator import google_cloud_storage_authenticator
 from load.loader import Loader
 from utils.parquet import table_to_parquet_buffer
 from utils.timestamp import generate_timestamp
@@ -38,7 +38,7 @@ class GoogleCloudStorageLoader(Loader):
 
     def _authenticate(self) -> storage.Client:
         """Authenticates and returns either the client or service object."""
-        google_cloud_storage_client = authenticate_google_cloud_storage(
+        google_cloud_storage_client = google_cloud_storage_authenticator(
             self.credentials_file_path
         )
         return google_cloud_storage_client

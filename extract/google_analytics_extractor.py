@@ -13,7 +13,7 @@ from google.analytics.data_v1beta.types import (
 )
 
 from extract.extractor import Extractor
-from helpers.google_cloud_platform import authenticate_google_analytics
+from helpers.authenticator import google_analytics_authenticator
 
 
 class GoogleAnalyticsExtractor(Extractor):
@@ -44,7 +44,7 @@ class GoogleAnalyticsExtractor(Extractor):
 
     def _authenticate(self) -> BetaAnalyticsDataClient:
         """Authenticates and returns Google Analytics Data API client."""
-        client = authenticate_google_analytics(self.credentials_file_path)
+        client = google_analytics_authenticator(self.credentials_file_path)
         return client
 
     def _convert_response_to_table(

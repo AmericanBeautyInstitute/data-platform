@@ -46,7 +46,7 @@ def test_extract_ga_data(
     mock_client = MagicMock()
     mock_client.run_report.return_value = mock_google_analytics_response
 
-    target = "extract.google_analytics_extractor.authenticate_google_analytics"
+    target = "extract.google_analytics_extractor.google_analytics_authenticator"
     mocker.patch(target=target, return_value=mock_client)
 
     extractor = GoogleAnalyticsExtractor(mock_credentials_file_path)

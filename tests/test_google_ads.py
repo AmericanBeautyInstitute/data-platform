@@ -58,7 +58,7 @@ def test_google_ads_extractor(
     mock_service.search.return_value = mock_google_ads_response
     mock_client.get_service.return_value = mock_service
 
-    target = "extract.google_ads_extractor.authenticate_google_ads"
+    target = "extract.google_ads_extractor.google_ads_authenticator"
     mocker.patch(target=target, return_value=mock_client)
 
     def protobuf_side_effect(protobuf_object: Any) -> dict[str, Any]:

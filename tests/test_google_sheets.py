@@ -42,7 +42,7 @@ def test_extraction(
     mock_service = mocker.MagicMock()
     mock_service.spreadsheets().values().get().execute.return_value = mock_sheets_data
 
-    target = "extract.google_sheets_extractor.authenticate_google_sheets"
+    target = "extract.google_sheets_extractor.google_sheets_authenticator"
 
     mocker.patch(target=target, return_value=mock_service)
 

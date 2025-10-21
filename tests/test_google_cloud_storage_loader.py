@@ -76,7 +76,7 @@ def test_loader_upload_param(
     mock_client.bucket.return_value = mock_bucket
 
     mocker.patch(
-        "load.google_cloud_storage_loader.authenticate_google_cloud_storage",
+        "load.google_cloud_storage_loader.google_cloud_storage_authenticator",
         return_value=mock_client,
     )
 
