@@ -10,28 +10,6 @@ from pytest_mock import MockerFixture
 from load.google_cloud_storage_loader import GoogleCloudStorageLoader
 
 
-@pytest.fixture
-def mock_credentials_file_path() -> Path:
-    """Creates a temporary credentials file path."""
-    tmp_dir = Path("scratch/tmp")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-
-    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
-    credentials_file_path.write_text('{"type": "service_account"}')
-    return credentials_file_path
-
-
-@pytest.fixture
-def sample_table() -> pa.Table:
-    """Creates a sample PyArrow table."""
-    data = {
-        "name": ["Alice", "Bob", "Relena"],
-        "age": ["25", "30", "35"],
-        "city": ["Tokyo", "New York", "Paris"],
-    }
-    return pa.table(data)
-
-
 def assert_bucket_called_correctly(
     mock_client: MagicMock, expected_bucket_name: str
 ) -> None:
@@ -54,30 +32,74 @@ def assert_upload_called_correctly(mock_blob: MagicMock) -> None:
     assert kwargs["content_type"] == "application/octet-stream"
 
 
-def test_loader_upload(
+@pytest.fixture
+def mock_credentials_file_path() -> Path:
+    """Creates a temporary credentials file path."""
+    tmp_dir = Path("scratch/tmp")
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
+    credentials_file_path.write_text('{"type": "service_account"}')
+    return credentials_file_path
+
+
+@pytest.fixture
+def sample_table() -> pa.Table:
+    """Creates a sample PyArrow Table."""
+    data = {
+        "name": ["Alice", "Bob", "Relena"],
+        "age": ["25", "30", "35"],
+        "city": ["Tokyo", "New York", "Paris"],
+    }
+    return pa.table(data)
+
+
+@pytest.mark.parametrize(
+    "timestamp,expected_blob_suffix",
+    [
+        (True, "2025-01-01T090000.parquet"),
+        (False, ".parquet"),
+    ],
+)
+def test_loader_upload_param(
     mocker: MockerFixture,
     mock_credentials_file_path: Path,
     sample_table: pa.Table,
+    timestamp: bool,
+    expected_blob_suffix: str,
 ) -> None:
-    """Tests that GoogleCloudStorageLoader attempts to upload a parquet file."""
+    """Tests loader data file transfer with and without timestamps."""
     mock_blob = MagicMock()
     mock_bucket = MagicMock()
     mock_bucket.blob.return_value = mock_blob
     mock_client = MagicMock()
     mock_client.bucket.return_value = mock_bucket
 
-    target = "load.google_cloud_storage_loader.authenticate_google_cloud_storage"
-    mocker.patch(target=target, return_value=mock_client)
-
-    loader = GoogleCloudStorageLoader(mock_credentials_file_path)
-
-    loader.load(
-        data=sample_table,
-        bucket_name="mock_bucket",
-        blob_name="students",
-        timestamp=False,
+    mocker.patch(
+        "load.google_cloud_storage_loader.authenticate_google_cloud_storage",
+        return_value=mock_client,
     )
 
-    assert_bucket_called_correctly(mock_client, "mock_bucket")
-    assert_blob_called_correctly(mock_bucket, "students.parquet")
+    if timestamp:
+        mocker.patch(
+            "load.google_cloud_storage_loader.generate_timestamp",
+            return_value="2025-01-01T090000",
+        )
+
+    loader = GoogleCloudStorageLoader(mock_credentials_file_path)
+    loader.load(
+        sample_table,
+        bucket_name="mock-bucket",
+        blob_name="students",
+        timestamp=timestamp,
+    )
+
+    expected_blob_name = (
+        f"students_{expected_blob_suffix}"
+        if timestamp
+        else f"students{expected_blob_suffix}"
+    )
+
+    assert_bucket_called_correctly(mock_client, "mock-bucket")
+    assert_blob_called_correctly(mock_bucket, expected_blob_name)
     assert_upload_called_correctly(mock_blob)
