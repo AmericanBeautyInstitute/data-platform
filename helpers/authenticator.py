@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 
 
-def authenticate_google_ads(credentials_file_path: Path | str) -> GoogleAdsClient:
+def google_ads_authenticator(credentials_file_path: Path | str) -> GoogleAdsClient:
     """Authenticates and returns the Google Ads client.
 
     credentials_file_path: Path | str
@@ -19,7 +19,7 @@ def authenticate_google_ads(credentials_file_path: Path | str) -> GoogleAdsClien
     return google_ads_client
 
 
-def authenticate_google_analytics(
+def google_analytics_authenticator(
     credentials_file_path: Path,
 ) -> BetaAnalyticsDataClient:
     """Authenticates and returns the Google Analytics client."""
@@ -29,7 +29,7 @@ def authenticate_google_analytics(
     return google_analytics_client
 
 
-def authenticate_google_cloud_storage(
+def google_cloud_storage_authenticator(
     credentials_file_path: Path | str,
 ) -> storage.Client:
     """Authenticates and returns the Google Cloud Storage client.
@@ -47,7 +47,7 @@ def authenticate_google_cloud_storage(
     return google_cloud_storage_client
 
 
-def authenticate_google_sheets(credentials_file_path: Path | str) -> Resource:
+def google_sheets_authenticator(credentials_file_path: Path | str) -> Resource:
     """Authenticates and returns the Google Sheets resource.
 
     credentials_file_path: Path | str
