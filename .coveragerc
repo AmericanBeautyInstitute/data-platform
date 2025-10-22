@@ -3,7 +3,6 @@ source =
     extract
     load
     transform
-    orchestration
     helpers
     utils
 branch = True
