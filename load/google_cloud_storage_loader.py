@@ -23,18 +23,18 @@ class GoogleCloudStorageLoader(Loader):
     ) -> None:
         """Loads data into the specified destination."""
         if timestamp:
-            data_file_name = f"{blob_name}_{generate_timestamp()}.parquet"
+            blob_name = f"{blob_name}_{generate_timestamp()}.parquet"
         else:
-            data_file_name = f"{blob_name}.parquet"
+            blob_name = f"{blob_name}.parquet"
 
         client = self.client
         bucket = client.bucket(bucket_name)
-        blob = bucket.blob(data_file_name)
+        blob = bucket.blob(blob_name)
 
         parquet_buffer = table_to_parquet_buffer(data)
         blob.upload_from_file(parquet_buffer, content_type="application/octet-stream")
 
-        print(f"Uploaded Parquet file to gs://{bucket_name}/{data_file_name}")
+        print(f"Uploaded Parquet file to gs://{bucket_name}/{blob_name}")
 
     def _authenticate(self) -> storage.Client:
         """Authenticates and returns either the client or service object."""

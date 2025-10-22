@@ -29,5 +29,5 @@ if __name__ == "__main__":
             spreadsheet_id=google_sheets_config.spreadsheet_id,
             bucket_name=google_sheets_config.bucket_name,
             sheet_name=sheet_name,
-            blob_name=sheet_name,
+            blob_name=f"{sheet_name}/{sheet_name}",
         )
