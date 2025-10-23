@@ -1,7 +1,6 @@
 """The Loader abstract base class."""
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any
 
 
@@ -10,13 +9,12 @@ class Loader(ABC):
 
     def __init__(
         self,
-        credentials_file_path: Path | str,
+        client: Any,
         config: dict[str, Any] | None = None,
     ) -> None:
         """Initializes the Loader."""
         self.config = config or {}
-        self.credentials_file_path = Path(credentials_file_path)
-        self._client: Any | None = None
+        self._client = client
 
     @abstractmethod
     def load(self, *args: Any, **kwargs: Any) -> None:
@@ -25,12 +23,5 @@ class Loader(ABC):
 
     @property
     def client(self) -> Any:
-        """Lazy-loads authenticated client."""
-        if self._client is None:
-            self._client = self._authenticate()
+        """Returns the authenticated client."""
         return self._client
-
-    @abstractmethod
-    def _authenticate(self) -> Any:
-        """Authenticates and returns the client/service object."""
-        pass

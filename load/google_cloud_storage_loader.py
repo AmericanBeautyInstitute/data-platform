@@ -3,9 +3,7 @@
 from pathlib import Path
 
 import pyarrow as pa
-from google.cloud import storage
 
-from helpers.authenticator import google_cloud_storage_authenticator
 from load.loader import Loader
 from utils.parquet import table_to_parquet_buffer
 from utils.timestamp import generate_timestamp
@@ -35,10 +33,3 @@ class GoogleCloudStorageLoader(Loader):
         blob.upload_from_file(parquet_buffer, content_type="application/octet-stream")
 
         print(f"Uploaded Parquet file to gs://{bucket_name}/{blob_name}")
-
-    def _authenticate(self) -> storage.Client:
-        """Authenticates and returns either the client or service object."""
-        google_cloud_storage_client = google_cloud_storage_authenticator(
-            self.credentials_file_path
-        )
-        return google_cloud_storage_client

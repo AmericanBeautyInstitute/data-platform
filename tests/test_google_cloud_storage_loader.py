@@ -1,6 +1,5 @@
 """Tests for GoogleCloudStorageLoader."""
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pyarrow as pa
@@ -33,14 +32,10 @@ def assert_upload_called_correctly(mock_blob: MagicMock) -> None:
 
 
 @pytest.fixture
-def mock_credentials_file_path() -> Path:
-    """Creates a temporary credentials file path."""
-    tmp_dir = Path("scratch/tmp")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-
-    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
-    credentials_file_path.write_text('{"type": "service_account"}')
-    return credentials_file_path
+def mock_gcs_client() -> MagicMock:
+    """Creates a mocked Google Cloud Storage client."""
+    mock_client = MagicMock()
+    return mock_client
 
 
 @pytest.fixture
@@ -63,7 +58,7 @@ def sample_table() -> pa.Table:
 )
 def test_loader_upload_param(
     mocker: MockerFixture,
-    mock_credentials_file_path: Path,
+    mock_gcs_client: MagicMock,
     sample_table: pa.Table,
     timestamp: bool,
     expected_blob_suffix: str,
@@ -72,13 +67,7 @@ def test_loader_upload_param(
     mock_blob = MagicMock()
     mock_bucket = MagicMock()
     mock_bucket.blob.return_value = mock_blob
-    mock_client = MagicMock()
-    mock_client.bucket.return_value = mock_bucket
-
-    mocker.patch(
-        "load.google_cloud_storage_loader.google_cloud_storage_authenticator",
-        return_value=mock_client,
-    )
+    mock_gcs_client.bucket.return_value = mock_bucket
 
     if timestamp:
         mocker.patch(
@@ -86,7 +75,7 @@ def test_loader_upload_param(
             return_value="2025-01-01T090000",
         )
 
-    loader = GoogleCloudStorageLoader(mock_credentials_file_path)
+    loader = GoogleCloudStorageLoader(client=mock_gcs_client)
     loader.load(
         sample_table,
         bucket_name="mock-bucket",
@@ -100,6 +89,6 @@ def test_loader_upload_param(
         else f"students{expected_blob_suffix}"
     )
 
-    assert_bucket_called_correctly(mock_client, "mock-bucket")
+    assert_bucket_called_correctly(mock_gcs_client, "mock-bucket")
     assert_blob_called_correctly(mock_bucket, expected_blob_name)
     assert_upload_called_correctly(mock_blob)
