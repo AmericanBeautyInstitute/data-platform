@@ -24,7 +24,8 @@ nav:
   - Projects:
     - Data Platform:
       - data-platform/index.md
-      - Architecture: data-platform/architecture.md
+      - Architecture:
+        - data-platform/architecture/index.md
       - Data Ingestion:
         - data-platform/data-ingestion/index.md
         - Data Sources: data-platform/data-ingestion/data-sources.md

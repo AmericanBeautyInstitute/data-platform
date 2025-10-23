@@ -25,5 +25,5 @@ This is the official documentation for all products built by the American Beauty
 
 ## [Data Platform](data-platform)
 
-#### 1. [Architecture](data-platform/architecture.md)
+#### 1. [Architecture](data-platform/architecture/index.md)
 #### 2. [Data Ingestion](data-platform/data-ingestion/index.md)
