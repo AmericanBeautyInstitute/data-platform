@@ -1,3 +1,7 @@
+---
+title: Data Platform Architecture
+---
+
 ![architecture](../../assets/architecture.svg)
 
 ## **Overview**
