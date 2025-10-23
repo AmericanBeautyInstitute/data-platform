@@ -34,6 +34,7 @@ Data transformations are performed in BigQuery using **dbt**. The resulting data
 ### **Analytics**
 
 Users and analyze data and access insights through:
+
 - **Looker Studio**
 - **Streamlit**
 
