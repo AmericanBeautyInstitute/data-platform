@@ -27,6 +27,7 @@ nav:
       - Architecture:
         - data-platform/architecture/index.md
       - Data Ingestion:
+        - data-platform/data-ingestion/index.md
         - Data Sources: data-platform/data-ingestion/data-sources.md
         - Extractors: data-platform/data-ingestion/extractors.md
         - Authentication: data-platform/data-ingestion/authentication.md
