@@ -3,7 +3,6 @@
 from typing import Any
 
 import pyarrow as pa
-from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
     DateRange,
     Dimension,
@@ -13,7 +12,6 @@ from google.analytics.data_v1beta.types import (
 )
 
 from extract.extractor import Extractor
-from helpers.authenticator import google_analytics_authenticator
 
 
 class GoogleAnalyticsExtractor(Extractor):
@@ -41,11 +39,6 @@ class GoogleAnalyticsExtractor(Extractor):
         response = client.run_report(request)
         table = self._convert_response_to_table(response, dimensions, metrics)
         return table
-
-    def _authenticate(self) -> BetaAnalyticsDataClient:
-        """Authenticates and returns Google Analytics Data API client."""
-        client = google_analytics_authenticator(self.credentials_file_path)
-        return client
 
     def _convert_response_to_table(
         self,

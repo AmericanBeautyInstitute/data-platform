@@ -4,7 +4,6 @@ import pyarrow as pa
 from googleapiclient.discovery import Resource
 
 from extract.extractor import Extractor
-from helpers.authenticator import google_sheets_authenticator
 
 
 class GoogleSheetsExtractor(Extractor):
@@ -30,10 +29,6 @@ class GoogleSheetsExtractor(Extractor):
         )
         sheet_rows = response.get("values", [])
         return sheet_rows
-
-    def _authenticate(self) -> Resource:
-        google_sheets_resource = google_sheets_authenticator(self.credentials_file_path)
-        return google_sheets_resource
 
     def _convert_list_to_table(self, data: list[list]) -> pa.Table:
         """Converts data from Google Sheets to a PyArrow table."""

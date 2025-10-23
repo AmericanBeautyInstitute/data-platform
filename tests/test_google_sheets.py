@@ -1,23 +1,18 @@
 """Tests for GoogleSheetsExtractor."""
 
-from pathlib import Path
+from unittest.mock import MagicMock
 
 import pyarrow as pa
 import pytest
-from pytest_mock import MockerFixture
 
 from extract.google_sheets_extractor import GoogleSheetsExtractor
 
 
 @pytest.fixture
-def mock_credentials_file_path() -> Path:
-    """Creates a temporary credentials file path."""
-    tmp_dir = Path("scratch/tmp")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-
-    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
-    credentials_file_path.write_text('{"type": "service_account"}')
-    return credentials_file_path
+def mock_google_sheets_service() -> MagicMock:
+    """Creates a mocked Google Sheets service."""
+    mock_service = MagicMock()
+    return mock_service
 
 
 @pytest.fixture
@@ -34,19 +29,15 @@ def mock_sheets_data() -> dict[str, list[list[str]]]:
 
 
 def test_extraction(
-    mocker: MockerFixture,
-    mock_credentials_file_path: Path,
+    mock_google_sheets_service: MagicMock,
     mock_sheets_data: dict[str, list[list[str]]],
 ) -> None:
     """Tests successful data extraction from Google Sheets."""
-    mock_service = mocker.MagicMock()
-    mock_service.spreadsheets().values().get().execute.return_value = mock_sheets_data
+    mock_google_sheets_service.spreadsheets().values().get().execute.return_value = (
+        mock_sheets_data
+    )
 
-    target = "extract.google_sheets_extractor.google_sheets_authenticator"
-
-    mocker.patch(target=target, return_value=mock_service)
-
-    extractor = GoogleSheetsExtractor(mock_credentials_file_path)
+    extractor = GoogleSheetsExtractor(client=mock_google_sheets_service)
     result = extractor.extract(spreadsheet_id="test_sheet_id", sheet_name="Sheet1")
 
     expected_rows = len(mock_sheets_data["values"]) - 1  # Exclude header

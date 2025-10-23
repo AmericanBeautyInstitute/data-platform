@@ -1,24 +1,18 @@
 """Tests for GoogleAnalyticsExtractor."""
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pyarrow as pa
 import pytest
-from pytest_mock import MockerFixture
 
 from extract.google_analytics_extractor import GoogleAnalyticsExtractor
 
 
 @pytest.fixture
-def mock_credentials_file_path() -> Path:
-    """Creates a temporary credentials file path."""
-    tmp_dir = Path("scratch/tmp")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-
-    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
-    credentials_file_path.write_text('{"type": "service_account"}')
-    return credentials_file_path
+def mock_google_analytics_client() -> MagicMock:
+    """Creates a mocked Google Analytics client."""
+    mock_client = MagicMock()
+    return mock_client
 
 
 @pytest.fixture
@@ -38,18 +32,15 @@ def mock_google_analytics_response() -> MagicMock:
 
 
 def test_extract_ga_data(
-    mocker: MockerFixture,
-    mock_credentials_file_path: Path,
+    mock_google_analytics_client: MagicMock,
     mock_google_analytics_response: MagicMock,
 ) -> None:
     """Tests successful extraction from the Google Analytics API."""
-    mock_client = MagicMock()
-    mock_client.run_report.return_value = mock_google_analytics_response
+    mock_google_analytics_client.run_report.return_value = (
+        mock_google_analytics_response
+    )
 
-    target = "extract.google_analytics_extractor.google_analytics_authenticator"
-    mocker.patch(target=target, return_value=mock_client)
-
-    extractor = GoogleAnalyticsExtractor(mock_credentials_file_path)
+    extractor = GoogleAnalyticsExtractor(client=mock_google_analytics_client)
 
     metrics = ["sessions", "pageviews"]
     dimensions = ["country"]
@@ -62,7 +53,7 @@ def test_extract_ga_data(
         dimensions=dimensions,
     )
 
-    mock_client.run_report.assert_called_once()
+    mock_google_analytics_client.run_report.assert_called_once()
 
     expected_rows = len(mock_google_analytics_response.rows)
     expected_columns = len(metrics) + len(dimensions)

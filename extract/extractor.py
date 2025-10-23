@@ -1,7 +1,6 @@
 """The Extractor abstract base class."""
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
@@ -12,27 +11,19 @@ class Extractor(ABC):
 
     def __init__(
         self,
-        credentials_file_path: Path | str,
+        client: Any,
         config: dict[str, Any] | None = None,
     ) -> None:
         """Initializes the Extractor."""
         self.config = config or {}
-        self.credentials_file_path = Path(credentials_file_path)
-        self._client: Any | None = None
+        self._client = client
 
     @abstractmethod
     def extract(self, *args: Any, **kwargs: Any) -> pa.Table:
-        """Extracts data from the source and returns it in a uniform format."""
+        """Extracts data from the source and returns it in tabular format."""
         pass
 
     @property
     def client(self) -> Any:
-        """Lazy-loads authenticated client."""
-        if self._client is None:
-            self._client = self._authenticate()
+        """Returns the authenticated client."""
         return self._client
-
-    @abstractmethod
-    def _authenticate(self) -> Any:
-        """Authenticates and returns either the client or service object."""
-        pass
