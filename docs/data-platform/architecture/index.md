@@ -13,6 +13,7 @@ American Beauty Institute's data platform runs entirely on Google Cloud Platform
 ### **Data Sources**
 
 The pipeline currently ingests data from the following sources:
+
 - **Google Ads**
 - **Google Analytics**
 - **Google Sheets**
