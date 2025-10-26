@@ -35,7 +35,7 @@ jobs:
           uv sync --all-groups
           uv run ruff format tests
           uv run ruff check tests
-          uv run mypy tests --ignore-missing-import
+          uv run ty check tests
           uv run pytest --cov --cov-report=term --cov-report=xml
 
       - name: Upload coverage report to Codecov
