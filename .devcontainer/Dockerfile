@@ -2,10 +2,10 @@
 
 FROM mcr.microsoft.com/devcontainers/base:jammy
 
-RUN \
-    apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y bash-completion curl
+# RUN \
+#     apt-get update \
+#     && apt-get upgrade -y \
+#     && apt-get install -y bash-completion curl
 
 # Coding only for vscode user and not root
 USER vscode
