@@ -4,9 +4,21 @@ from pathlib import Path
 
 from google.ads.googleads.client import GoogleAdsClient
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
-from google.cloud import storage
+from google.cloud import bigquery, storage
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
+
+
+def bigquery_authenticator(credentials_file_path: Path | str) -> bigquery.Client:
+    """Authenticates and returns the BigQuery client."""
+    credentials = service_account.Credentials.from_service_account_file(
+        credentials_file_path,
+        scopes=[
+            "https://www.googleapis.com/auth/bigquery",
+        ],
+    )
+    bigquery_client = bigquery.Client(credentials=credentials)
+    return bigquery_client
 
 
 def google_ads_authenticator(credentials_file_path: Path | str) -> GoogleAdsClient:
