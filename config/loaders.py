@@ -1,23 +1,22 @@
 """Pydantic base models for loader configurations."""
 
+from typing import Any, Literal
+
 from pydantic import BaseModel
 
 
 class BigQueryLoadConfig(BaseModel):
-    """Configuration for the BigQuery loader."""
+    """Configuration for BigQuery load operations."""
 
     dataset_id: str
     table_id: str
-    write_disposition: str = "WRITE_TRUNCATE"
-    source_format: str = "PARQUET"
+    write_disposition: Literal["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"] = (
+        "WRITE_TRUNCATE"
+    )
+    source_format: Literal["PARQUET", "CSV", "JSON", "AVRO"] = "PARQUET"
     create_table_if_needed: bool = True
     partition_field: str | None = None
     cluster_fields: list[str] | None = None
-
-    class Config:
-        """Configuration settings."""
-
-        arbitrary_types_allowed = True
 
 
 class BigQueryTableConfig(BaseModel):
@@ -25,16 +24,14 @@ class BigQueryTableConfig(BaseModel):
 
     dataset_id: str
     table_id: str
-    schema: list | None = None
+    schema: Any
     partition_field: str | None = None
     cluster_fields: list[str] | None = None
     description: str | None = None
 
-    class Config:
-        """Configuration settings."""
-
-        # Allow BigQuery/Arrow types
-        arbitrary_types_allowed = True
+    model_config = {
+        "arbitrary_types_allowed": True,
+    }
 
     @property
     def table_reference(self) -> str:
