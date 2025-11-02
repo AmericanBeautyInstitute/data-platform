@@ -3,6 +3,4 @@ source =
     extract
     load
     transform
-    helpers
-    utils
 branch = True
