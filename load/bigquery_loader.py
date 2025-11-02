@@ -19,20 +19,28 @@ class BigQueryLoader(Loader):
         table_reference = f"{self.client.project}.{config.dataset_id}.{config.table_id}"
 
         if config.create_table_if_needed and isinstance(data, pa.Table):
-            table_config = BigQueryTableConfig(
-                dataset_id=config.dataset_id,
-                table_id=config.table_id,
-                schema=data.schema,
-                partition_field=config.partition_field,
-                cluster_fields=config.cluster_fields,
-            )
-            ensure_table_exists(self.client, table_config)
+            self._ensure_table_created(data, config)
 
         job_config = self._build_job_config(config)
         load_job = self._dispatch_load(data, table_reference, job_config)
 
         load_job.result()
         print(f"Loaded {load_job.output_rows} rows into {table_reference}")
+
+    def _ensure_table_created(
+        self,
+        data: pa.Table,
+        config: BigQueryLoadConfig,
+    ) -> None:
+        """Ensures table exists before loading data."""
+        table_config = BigQueryTableConfig(
+            dataset_id=config.dataset_id,
+            table_id=config.table_id,
+            schema=data.schema,
+            partition_field=config.partition_field,
+            cluster_fields=config.cluster_fields,
+        )
+        ensure_table_exists(self.client, table_config)
 
     def _build_job_config(self, config: BigQueryLoadConfig) -> bigquery.LoadJobConfig:
         """Builds BigQuery LoadJobConfig from LoadConfig."""

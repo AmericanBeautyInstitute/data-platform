@@ -2,6 +2,7 @@
 
 import pyarrow as pa
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
 from config.loaders import BigQueryTableConfig
 
@@ -23,19 +24,6 @@ ARROW_TO_BIGQUERY_TYPE_MAP = {
 }
 
 
-def arrow_to_bigquery_schema(arrow_schema: pa.Schema) -> list[bigquery.SchemaField]:
-    """Converts PyArrow schema to BigQuery schema."""
-    bigquery_schema = []
-
-    for field in arrow_schema:
-        bigquery_type = _get_bigquery_type(field.type)
-        bigquery_schema.append(
-            bigquery.SchemaField(field.name, bigquery_type, mode="NULLABLE")
-        )
-
-    return bigquery_schema
-
-
 def ensure_table_exists(
     client: bigquery.Client,
     config: BigQueryTableConfig,
@@ -54,19 +42,12 @@ def ensure_table_exists(
     print(f"Created table {table_reference}")
 
 
-def _get_bigquery_type(arrow_type: pa.DataType) -> str:
-    """Maps PyArrow type to BigQuery type string."""
-    if pa.types.is_timestamp(arrow_type):
-        return "TIMESTAMP"
-    return ARROW_TO_BIGQUERY_TYPE_MAP.get(arrow_type, "STRING")
-
-
 def _table_exists(client: bigquery.Client, table_reference: str) -> bool:
     """Checks if table exists."""
     try:
         client.get_table(table_reference)
         return True
-    except Exception:
+    except NotFound:
         return False
 
 
@@ -75,8 +56,28 @@ def _prepare_schema(
 ) -> list[bigquery.SchemaField]:
     """Converts schema to BigQuery format if needed."""
     if isinstance(schema, pa.Schema):
-        return arrow_to_bigquery_schema(schema)
+        return _arrow_to_bigquery_schema(schema)
     return schema
+
+
+def _arrow_to_bigquery_schema(arrow_schema: pa.Schema) -> list[bigquery.SchemaField]:
+    """Converts PyArrow schema to BigQuery schema."""
+    bigquery_schema = []
+
+    for field in arrow_schema:
+        bigquery_type = _get_bigquery_type(field.type)
+        bigquery_schema.append(
+            bigquery.SchemaField(field.name, bigquery_type, mode="NULLABLE")
+        )
+
+    return bigquery_schema
+
+
+def _get_bigquery_type(arrow_type: pa.DataType) -> str:
+    """Maps PyArrow type to BigQuery type string."""
+    if pa.types.is_timestamp(arrow_type):
+        return "TIMESTAMP"
+    return ARROW_TO_BIGQUERY_TYPE_MAP.get(arrow_type, "STRING")
 
 
 def _create_table_object(
