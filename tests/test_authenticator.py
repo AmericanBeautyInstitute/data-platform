@@ -11,12 +11,9 @@ from helpers.authenticator import (
     google_analytics_authenticator,
 )
 
-tmp_dir = Path("scratch/tmp")
-tmp_dir.mkdir(parents=True, exist_ok=True)
-
 
 @pytest.fixture
-def mock_google_ads_credentials_file_path() -> Path:
+def mock_google_ads_credentials_file_path(tmp_path: Path) -> Path:
     """Creates a temporary credentials file path for Google Ads."""
     credentials = """\
 developer_token: abcdef123456
@@ -25,15 +22,15 @@ client_id: 123456-abcdef.apps.googleusercontent.com
 client_secret: aBcDeFgHiJkL
 use_proto_plus: true
 """
-    credentials_file_path = tmp_dir / "mock_google-ads.yaml"
+    credentials_file_path = tmp_path / "mock_google-ads.yaml"
     credentials_file_path.write_text(credentials)
     return credentials_file_path
 
 
 @pytest.fixture
-def mock_gcp_service_account_key_file_path() -> Path:
+def mock_gcp_service_account_key_file_path(tmp_path: Path) -> Path:
     """Creates a temporary credentials file path."""
-    credentials_file_path = tmp_dir / "mock_gcp_service_account_key.json"
+    credentials_file_path = tmp_path / "mock_gcp_service_account_key.json"
     credentials_file_path.write_text('{"type": "service_account"}')
     return credentials_file_path
 
