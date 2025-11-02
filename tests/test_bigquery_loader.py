@@ -1,6 +1,7 @@
 """Tests for BigQueryLoader."""
 
 from pathlib import Path
+from typing import Literal
 from unittest.mock import MagicMock, Mock
 
 import pyarrow as pa
@@ -146,8 +147,8 @@ def test_load_config_variations(
     mocker: MockerFixture,
     mock_bigquery_client: MagicMock,
     sample_table: pa.Table,
-    write_disposition: str,
-    source_format: str,
+    write_disposition: Literal["WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY"],
+    source_format: Literal["PARQUET", "CSV", "JSON", "AVRO"],
 ) -> None:
     """Tests different load configuration options."""
     mocker.patch("load.bigquery_loader.ensure_table_exists")
