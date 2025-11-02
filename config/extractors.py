@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from config.env import get_secret
 
 
-class GoogleSheetsConfig(BaseModel):
+class GoogleSheetsExtractorConfig(BaseModel):
     """Configuration for the Google Sheets extractor."""
 
     spreadsheet_id: str = get_secret("GOOGLE_SHEETS_ID")

@@ -2,7 +2,7 @@
 
 from prefect import flow
 
-from config.extractors import GoogleSheetsConfig
+from config.extractors import GoogleSheetsExtractorConfig
 from orchestration.tasks.extract import extract_from_google_sheets
 from orchestration.tasks.load import load_to_google_cloud_storage
 
@@ -21,7 +21,7 @@ def google_sheets_to_google_cloud_storage(
 
 
 if __name__ == "__main__":
-    google_sheets_config = GoogleSheetsConfig()
+    google_sheets_config = GoogleSheetsExtractorConfig()
 
     for sheet_name in google_sheets_config.sheet_names:
         google_sheets_to_google_cloud_storage(
