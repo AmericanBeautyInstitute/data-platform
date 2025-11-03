@@ -71,7 +71,7 @@ def test_loader_upload_param(
 
     if timestamp:
         mocker.patch(
-            "load.google_cloud_storage_loader.generate_timestamp",
+            "load.google_cloud_storage_loader.generate_utc_timestamp",
             return_value="2025-01-01T090000",
         )
 
