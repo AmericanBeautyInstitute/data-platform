@@ -6,7 +6,7 @@ import pyarrow as pa
 
 from load.loader import Loader
 from utils.parquet import table_to_parquet_buffer
-from utils.timestamp import generate_timestamp
+from utils.timestamp import generate_utc_timestamp
 
 
 class GoogleCloudStorageLoader(Loader):
@@ -21,7 +21,7 @@ class GoogleCloudStorageLoader(Loader):
     ) -> None:
         """Loads data into the specified destination."""
         if timestamp:
-            blob_name = f"{blob_name}_{generate_timestamp()}.parquet"
+            blob_name = f"{blob_name}_{generate_utc_timestamp()}.parquet"
         else:
             blob_name = f"{blob_name}.parquet"
 
