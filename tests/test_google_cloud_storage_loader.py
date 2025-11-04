@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pyarrow as pa
 import pytest
-from pytest_mock import MockerFixture
 
 from load.google_cloud_storage_loader import GoogleCloudStorageLoader
+from utils.parquet import table_to_parquet_buffer
 
 
 def assert_bucket_called_correctly(
@@ -34,8 +34,7 @@ def assert_upload_called_correctly(mock_blob: MagicMock) -> None:
 @pytest.fixture
 def mock_gcs_client() -> MagicMock:
     """Creates a mocked Google Cloud Storage client."""
-    mock_client = MagicMock()
-    return mock_client
+    return MagicMock()
 
 
 @pytest.fixture
@@ -49,45 +48,22 @@ def sample_table() -> pa.Table:
     return pa.table(data)
 
 
-@pytest.mark.parametrize(
-    "timestamp,expected_blob_suffix",
-    [
-        (True, "2025-01-01T090000.parquet"),
-        (False, ".parquet"),
-    ],
-)
-def test_loader_upload_param(
-    mocker: MockerFixture,
-    mock_gcs_client: MagicMock,
-    sample_table: pa.Table,
-    timestamp: bool,
-    expected_blob_suffix: str,
-) -> None:
-    """Tests loader data file transfer with and without timestamps."""
+def test_loader_upload(mock_gcs_client: MagicMock, sample_table: pa.Table) -> None:
+    """Tests loader data file transfer without timestamping."""
     mock_blob = MagicMock()
     mock_bucket = MagicMock()
     mock_bucket.blob.return_value = mock_blob
     mock_gcs_client.bucket.return_value = mock_bucket
 
-    if timestamp:
-        mocker.patch(
-            "load.google_cloud_storage_loader.generate_timestamp",
-            return_value="2025-01-01T090000",
-        )
-
     loader = GoogleCloudStorageLoader(client=mock_gcs_client)
+    buffer = table_to_parquet_buffer(sample_table)
     loader.load(
-        sample_table,
+        buffer,
         bucket_name="mock-bucket",
-        blob_name="students",
-        timestamp=timestamp,
+        blob_name="students.parquet",
     )
 
-    expected_blob_name = (
-        f"students_{expected_blob_suffix}"
-        if timestamp
-        else f"students{expected_blob_suffix}"
-    )
+    expected_blob_name = "students.parquet"
 
     assert_bucket_called_correctly(mock_gcs_client, "mock-bucket")
     assert_blob_called_correctly(mock_bucket, expected_blob_name)
