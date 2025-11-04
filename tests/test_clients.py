@@ -1,14 +1,13 @@
-"""Tests for authenticators."""
+"""Tests for GCP client builders."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from pytest_mock import MockerFixture
 
-from helpers.authenticator import (
-    google_ads_authenticator,
-    google_analytics_authenticator,
+from clients.gcp import (
+    build_google_ads_client,
+    build_google_analytics_client,
 )
 
 
@@ -38,40 +37,36 @@ def mock_gcp_service_account_key_file_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def mock_google_ads_client() -> MagicMock:
     """Mocks the Google Ads client."""
-    mock_client = MagicMock()
-    return mock_client
+    return MagicMock()
 
 
 @pytest.fixture
 def mock_google_analytics_client() -> MagicMock:
     """Mocks the Google Analytics client."""
-    mock_client = MagicMock()
-    return mock_client
+    return MagicMock()
 
 
-def test_google_ads_authenticator(
-    mocker: MockerFixture,
+def test_build_google_ads_client(
     mock_google_ads_credentials_file_path: Path,
     mock_google_ads_client: MagicMock,
 ) -> None:
-    """Tests Google Ads authentication."""
-    target = "helpers.authenticator.GoogleAdsClient"
-    mocker.patch(target=target, return_value=mock_google_ads_client)
+    """Tests Google Ads client builder."""
+    with patch(
+        "clients.gcp.GoogleAdsClient.load_from_storage",
+        return_value=mock_google_ads_client,
+    ):
+        client = build_google_ads_client(mock_google_ads_credentials_file_path)
+        assert client is mock_google_ads_client
 
-    google_ads_client = google_ads_authenticator(mock_google_ads_credentials_file_path)
-    assert google_ads_client is not None
 
-
-def test_google_analytics_authenticator(
-    mocker: MockerFixture,
+def test_build_google_analytics_client(
     mock_gcp_service_account_key_file_path: Path,
     mock_google_analytics_client: MagicMock,
 ) -> None:
-    """Tests Google Analytics authentication."""
-    target = "helpers.authenticator.BetaAnalyticsDataClient"
-    mocker.patch(target=target, return_value=mock_google_analytics_client)
-
-    google_analytics_client = google_analytics_authenticator(
-        mock_gcp_service_account_key_file_path
-    )
-    assert google_analytics_client is not None
+    """Tests Google Analytics client builder."""
+    with patch(
+        "clients.gcp.BetaAnalyticsDataClient.from_service_account_file",
+        return_value=mock_google_analytics_client,
+    ):
+        client = build_google_analytics_client(mock_gcp_service_account_key_file_path)
+        assert client is mock_google_analytics_client
