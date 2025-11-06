@@ -18,12 +18,9 @@ def mock_bigquery_client() -> Mock:
     mock_client = Mock()
     mock_client.project = "test-project"
 
-    # Simulate table does not exist initially
     mock_client.get_table.side_effect = NotFound("Table not found")
-    # create_table returns the table object itself
     mock_client.create_table.side_effect = lambda table: table
 
-    # Simulate load jobs
     mock_client.load_table_from_file.side_effect = (
         lambda file, table_ref, job_config: Mock(output_rows=3, result=lambda: None)
     )
@@ -63,11 +60,9 @@ def test_load_from_arrow_table(
     loader = BigQueryLoader(client=mock_bigquery_client)
     loader.load(sample_table, basic_load_config)
 
-    # Table creation should be called
     assert mock_bigquery_client.get_table.called
     assert mock_bigquery_client.create_table.called
 
-    # Load job should be executed
     assert mock_bigquery_client.load_table_from_file.called
 
 
@@ -123,7 +118,6 @@ def test_load_config_variations(
     loader = BigQueryLoader(client=mock_bigquery_client)
     loader.load(sample_table, config)
 
-    # Verify load job executed
     assert mock_bigquery_client.load_table_from_file.called
 
 
