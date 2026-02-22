@@ -26,35 +26,53 @@ class GoogleAnalyticsExtractor(Extractor):
         dimensions: list[str] | None = None,
     ) -> pa.Table:
         """Extracts data from Google Analytics and returns it as a PyArrow table."""
-        client = self.client
         dimensions = dimensions or []
+        request = self._build_request(
+            property_id, start_date, end_date, metrics, dimensions
+        )
+        response = self.client.run_report(request)
+        rows = self._parse_response(response, dimensions, metrics)
+        table = self._build_table_from_dicts(rows, dimensions, metrics)
+        return table
 
-        request = RunReportRequest(
+    def _build_request(
+        self,
+        property_id: str,
+        start_date: str,
+        end_date: str,
+        metrics: list[str],
+        dimensions: list[str],
+    ) -> RunReportRequest:
+        """Builds the GA4 RunReportRequest object.
+
+        GA4 requires the property to be prefixed with 'properties/'.
+        Metrics and dimensions are wrapped in their respective GA4 types.
+        """
+        return RunReportRequest(
             property=f"properties/{property_id}",
             date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
             metrics=[Metric(name=metric) for metric in metrics],
             dimensions=[Dimension(name=dimension) for dimension in dimensions],
         )
 
-        response = client.run_report(request)
-        table = self._convert_response_to_table(response, dimensions, metrics)
-        return table
-
-    def _convert_response_to_table(
+    def _parse_response(
         self,
         response: RunReportResponse,
         dimension_names: list[str],
         metric_names: list[str],
-    ) -> pa.Table:
-        """Converts the Google Analytics API response to PyArrow table."""
+    ) -> list[dict[str, Any]]:
+        """Parses GA4 response rows into a list of flat dictionaries.
+
+        Each row in the GA4 response separates dimension_values and
+        metric_values as distinct attributes — keys here map those
+        response attributes to our desired output column names.
+        """
+        # Keys are GA4 response row attributes; values are our desired column names
         field_mapping = {
             "dimension_values": dimension_names,
             "metric_values": metric_names,
         }
-
-        rows = [self._extract_row_data(row, field_mapping) for row in response.rows]
-        table = self._build_table_from_dicts(rows, dimension_names, metric_names)
-        return table
+        return [self._extract_row_data(row, field_mapping) for row in response.rows]
 
     def _build_table_from_dicts(
         self,
