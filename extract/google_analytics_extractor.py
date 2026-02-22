@@ -29,6 +29,7 @@ class GoogleAnalyticsExtractor(Extractor):
         client = self.client
         dimensions = dimensions or []
 
+        # TODO: Abstract this into _build_request internal method.
         request = RunReportRequest(
             property=f"properties/{property_id}",
             date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
