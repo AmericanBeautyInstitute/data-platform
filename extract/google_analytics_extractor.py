@@ -48,6 +48,8 @@ class GoogleAnalyticsExtractor(Extractor):
         metric_names: list[str],
     ) -> pa.Table:
         """Converts the Google Analytics API response to PyArrow table."""
+
+        # Keys are GA4 response row attributes; values are our desired column names
         field_mapping = {
             "dimension_values": dimension_names,
             "metric_values": metric_names,
