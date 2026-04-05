@@ -8,17 +8,19 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "dbt-bigquery>=1.10.2",
+    "dagster>=1.12.22",
+    "dagster-gcp>=0.28.22",
+    "dagster-sqlmesh>=0.22.0",
     "google-ads>=28.2.0",
     "google-analytics-data>=0.19.0",
     "google-api-python-client>=2.185.0",
     "google-auth>=2.41.1",
     "google-cloud-bigquery>=3.38.0",
+    "google-cloud-secret-manager>=2.27.0",
     "google-cloud-storage>=2.19.0",
-    "prefect>=3.4.23",
-    "prefect-dbt>=0.7.8",
     "pyarrow>=21.0.0",
     "python-dotenv>=1.1.1",
+    "sqlmesh[bigquery]>=0.233.0",
 ]
 
 [dependency-groups]
