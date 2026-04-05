@@ -7,7 +7,4 @@ FROM mcr.microsoft.com/devcontainers/base:jammy
 #     && apt-get upgrade -y \
 #     && apt-get install -y bash-completion curl
 
-# Coding only for vscode user and not root
-USER vscode
-
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv

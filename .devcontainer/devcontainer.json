@@ -4,11 +4,6 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "features": {
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.11"
-    }
-  },
   "customizations": {
     "vscode": {
       "settings": {
@@ -28,6 +23,12 @@
       ]
     }
   },
-  "remoteUser": "vscode",
-  "postCreateCommand": "bash ./.devcontainer/setup.sh"
+  "mounts": [
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
+  ],
+  "remoteEnv": {
+      "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
+  },
+  "remoteUser": "root",
+  "postCreateCommand": "make setup"
 }
