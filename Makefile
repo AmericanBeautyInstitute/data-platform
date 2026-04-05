@@ -42,6 +42,7 @@ type_check:
 	help \
 	lint \
 	reformat \
+	serve \
 	setup \
 	test \
 	type_check
