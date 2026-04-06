@@ -4,6 +4,8 @@ from dagster import ConfigurableResource, EnvVar
 from dagster_gcp import BigQueryResource, GCSResource
 from googleapiclient.discovery import Resource
 
+from extract.facebook_ads import client as fb_client
+from extract.facebook_ads.client import AdAccount
 from extract.google_ads import client as ads_client
 from extract.google_ads.client import GoogleAdsClient
 from extract.google_analytics import client as ga_client
@@ -43,6 +45,17 @@ class GoogleAdsResource(ConfigurableResource):
         return ads_client.build_client(self.credentials_path)
 
 
+class FacebookAdsResource(ConfigurableResource):
+    """Resource for authenticating with the Facebook Marketing API."""
+
+    access_token: str
+    ad_account_id: str
+
+    def get_client(self) -> AdAccount:
+        """Builds and returns an authenticated Facebook Ads API client."""
+        return fb_client.build_client(self.access_token, self.ad_account_id)
+
+
 gcs_resource = GCSResource(project=EnvVar("GCP_PROJECT_ID"))
 bigquery_resource = BigQueryResource(project=EnvVar("GCP_PROJECT_ID"))
 
@@ -59,4 +72,9 @@ google_analytics_resource = GoogleAnalyticsResource(
 google_ads_resource = GoogleAdsResource(
     credentials_path=EnvVar("GOOGLE_ADS_CREDENTIALS_PATH"),
     customer_id=EnvVar("GOOGLE_ADS_CUSTOMER_ID"),
+)
+
+facebook_ads_resource = FacebookAdsResource(
+    access_token=EnvVar("FACEBOOK_ADS_ACCESS_TOKEN"),
+    ad_account_id=EnvVar("FACEBOOK_ADS_ACCOUNT_ID"),
 )
