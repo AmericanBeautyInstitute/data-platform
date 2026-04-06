@@ -1,0 +1,18 @@
+[Unit]
+Description=Dagster Daemon
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/data-platform
+EnvironmentFile=/opt/data-platform/.env
+ExecStart=/root/.cargo/bin/uv run dagster-daemon run
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
