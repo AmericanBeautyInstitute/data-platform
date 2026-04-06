@@ -1,0 +1,64 @@
+"""PayPal ingestion asset."""
+
+import os
+import uuid
+from datetime import datetime
+
+from dagster import AssetExecutionContext, asset
+from dagster_gcp import BigQueryResource, GCSResource
+
+from assets.ingestion.resources import PayPalResource
+from assets.ingestion.schedules import daily_partitions
+from extract.paypal import extract as paypal_extract
+from load.bigquery import load as bq_load
+from load.config import BigQueryConfig, GCSConfig
+from load.gcs import load as gcs_load
+
+DATASET = "raw"
+TABLE = "paypal_transactions"
+
+
+@asset(
+    name="paypal_transactions_raw",
+    partitions_def=daily_partitions,
+    group_name="ingestion",
+)
+def paypal_transactions_raw(
+    context: AssetExecutionContext,
+    gcs: GCSResource,
+    bigquery: BigQueryResource,
+    paypal: PayPalResource,
+) -> None:
+    """Extracts PayPal transactions and loads them into GCS and BigQuery."""
+    partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
+    run_id = str(uuid.uuid4())
+    date_str = partition_date.isoformat()
+    project = os.environ["GCP_PROJECT_ID"]
+    bucket = os.environ["GCS_BUCKET"]
+
+    client = paypal.get_client()
+    table = paypal_extract.extract(client, date_str, date_str)
+
+    gcs_config = GCSConfig(
+        bucket=bucket,
+        source=TABLE,
+        partition_date=partition_date,
+        run_id=run_id,
+    )
+    gcs_uri = gcs_load.load(table, gcs_config, gcs.get_client())
+
+    bq_config = BigQueryConfig(
+        project=project,
+        dataset=DATASET,
+        table=TABLE,
+        partition_date=partition_date,
+    )
+    rows_loaded = bq_load.load(gcs_uri, bq_config, bigquery.get_client())
+
+    context.add_output_metadata(
+        {
+            "rows_loaded": rows_loaded,
+            "gcs_uri": gcs_uri,
+            "partition_date": date_str,
+        }
+    )

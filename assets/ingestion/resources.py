@@ -10,6 +10,8 @@ from extract.google_ads import client as ads_client
 from extract.google_ads.client import GoogleAdsClient
 from extract.google_analytics import client as ga_client
 from extract.google_sheets import client as sheets_client
+from extract.paypal import client as paypal_client
+from extract.paypal.client import PayPalClient
 
 
 class GoogleSheetsResource(ConfigurableResource):
@@ -56,6 +58,17 @@ class FacebookAdsResource(ConfigurableResource):
         return fb_client.build_client(self.access_token, self.ad_account_id)
 
 
+class PayPalResource(ConfigurableResource):
+    """Resource for authenticating with the PayPal REST API."""
+
+    client_id: str
+    client_secret: str
+
+    def get_client(self) -> PayPalClient:
+        """Builds and returns an authenticated PayPal REST API client."""
+        return paypal_client.build_client(self.client_id, self.client_secret)
+
+
 gcs_resource = GCSResource(project=EnvVar("GCP_PROJECT_ID"))
 bigquery_resource = BigQueryResource(project=EnvVar("GCP_PROJECT_ID"))
 
@@ -77,4 +90,9 @@ google_ads_resource = GoogleAdsResource(
 facebook_ads_resource = FacebookAdsResource(
     access_token=EnvVar("FACEBOOK_ADS_ACCESS_TOKEN"),
     ad_account_id=EnvVar("FACEBOOK_ADS_ACCOUNT_ID"),
+)
+
+paypal_resource = PayPalResource(
+    client_id=EnvVar("PAYPAL_CLIENT_ID"),
+    client_secret=EnvVar("PAYPAL_CLIENT_SECRET"),
 )
