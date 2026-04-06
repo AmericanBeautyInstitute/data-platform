@@ -11,7 +11,7 @@ from load.gcs.partition import build_gcs_blob_path
 
 
 def load(
-    records: list[pa.Table],
+    table: pa.Table,
     config: GCSConfig,
     client: storage.Client,
 ) -> str:
@@ -24,7 +24,7 @@ def load(
         config.partition_date,
         config.run_id,
     )
-    data = _serialize(records)
+    data = _serialize(table)
     gcs_uri = _upload(client, config.bucket, blob_path, data)
     return gcs_uri
 
