@@ -26,6 +26,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "coverage>=7.9.1",
+    "dagster-webserver>=1.12.22",
     "pre-commit>=4.3.0",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
