@@ -11,7 +11,11 @@ from assets.ingestion.google_sheets import (
     build_google_sheets_asset,
     google_sheets_assets,
 )
-from assets.ingestion.resources import bigquery_resource, gcs_resource
+from assets.ingestion.resources import (
+    GoogleSheetsResource,
+    bigquery_resource,
+    gcs_resource,
+)
 
 EXPECTED_ASSET_COUNT = 3
 EXPECTED_METADATA_KEYS = {"rows_loaded", "gcs_uri", "partition_date", "sheet_name"}
@@ -34,10 +38,17 @@ SAMPLE_TABLE = pa.table(
 @pytest.fixture
 def env_vars(monkeypatch):
     """Sets required environment variables for asset execution."""
-    monkeypatch.setenv("GOOGLE_SHEETS_CREDENTIALS_PATH", FAKE_CREDENTIALS_PATH)
-    monkeypatch.setenv("GOOGLE_SHEETS_SPREADSHEET_ID", FAKE_SPREADSHEET_ID)
     monkeypatch.setenv("GCP_PROJECT_ID", FAKE_PROJECT)
     monkeypatch.setenv("GCS_BUCKET", FAKE_BUCKET)
+
+
+@pytest.fixture
+def google_sheets_resource():
+    """GoogleSheetsResource with fake credentials."""
+    return GoogleSheetsResource(
+        credentials_path=FAKE_CREDENTIALS_PATH,
+        spreadsheet_id=FAKE_SPREADSHEET_ID,
+    )
 
 
 def test_google_sheets_assets_count():
@@ -70,15 +81,11 @@ def test_build_google_sheets_asset_returns_asset():
     assert asset_def.key.path[-1] == "google_sheets_students_raw"
 
 
-def test_materialize_students_asset(env_vars):
+def test_materialize_students_asset(env_vars, google_sheets_resource):
     """Students asset materializes without error using mocked dependencies."""
     asset_def = build_google_sheets_asset("students")
 
     with (
-        patch(
-            "assets.ingestion.google_sheets.sheets_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch(
             "assets.ingestion.google_sheets.sheets_extract.extract",
             return_value=SAMPLE_TABLE,
@@ -91,26 +98,30 @@ def test_materialize_students_asset(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleSheetsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         result = materialize(
             [asset_def],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_sheets": google_sheets_resource,
+            },
         )
 
     assert result.success
 
 
-def test_materialize_passes_sheet_name_to_extract(env_vars):
+def test_materialize_passes_sheet_name_to_extract(env_vars, google_sheets_resource):
     """extract() is called with the correct sheet_name."""
     asset_def = build_google_sheets_asset("programs")
     mock_extract = MagicMock(return_value=SAMPLE_TABLE)
 
     with (
-        patch(
-            "assets.ingestion.google_sheets.sheets_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch("assets.ingestion.google_sheets.sheets_extract.extract", mock_extract),
         patch(
             "assets.ingestion.google_sheets.gcs_load.load", return_value=FAKE_GCS_URI
@@ -120,26 +131,30 @@ def test_materialize_passes_sheet_name_to_extract(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleSheetsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         materialize(
             [asset_def],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_sheets": google_sheets_resource,
+            },
         )
 
     assert mock_extract.call_args[0][2] == "programs"
 
 
-def test_materialize_gcs_source_includes_sheet_name(env_vars):
+def test_materialize_gcs_source_includes_sheet_name(env_vars, google_sheets_resource):
     """GCS load is called with source name containing the sheet name."""
     asset_def = build_google_sheets_asset("inventory")
     mock_gcs_load = MagicMock(return_value=FAKE_GCS_URI)
 
     with (
-        patch(
-            "assets.ingestion.google_sheets.sheets_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch(
             "assets.ingestion.google_sheets.sheets_extract.extract",
             return_value=SAMPLE_TABLE,
@@ -150,26 +165,30 @@ def test_materialize_gcs_source_includes_sheet_name(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleSheetsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         materialize(
             [asset_def],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_sheets": google_sheets_resource,
+            },
         )
 
     gcs_config_arg = mock_gcs_load.call_args[0][1]
     assert "inventory" in gcs_config_arg.source
 
 
-def test_materialize_output_metadata_keys(env_vars):
+def test_materialize_output_metadata_keys(env_vars, google_sheets_resource):
     """Output metadata contains all expected keys."""
     asset_def = build_google_sheets_asset("students")
 
     with (
-        patch(
-            "assets.ingestion.google_sheets.sheets_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch(
             "assets.ingestion.google_sheets.sheets_extract.extract",
             return_value=SAMPLE_TABLE,
@@ -182,11 +201,19 @@ def test_materialize_output_metadata_keys(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleSheetsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         result = materialize(
             [asset_def],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_sheets": google_sheets_resource,
+            },
         )
 
     mat_event = result.get_asset_materialization_events()[0]
