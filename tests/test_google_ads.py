@@ -377,7 +377,7 @@ def test_record_invalid_date_raises():
     """Invalid date string raises ValidationError."""
     with pytest.raises(ValidationError):
         Record(
-            date="not-a-date",
+            date="not-a-date",  # type: ignore[arg-type]
             clicks=10,
             impressions=100,
             cost_micros=1500000,
@@ -390,8 +390,8 @@ def test_record_invalid_clicks_raises():
     """Non-integer clicks raises ValidationError."""
     with pytest.raises(ValidationError):
         Record(
-            date="2024-01-15",
-            clicks="not-an-int",
+            date="2024-01-15",  # type: ignore[arg-type]
+            clicks="not-an-int",  # type: ignore[arg-type]
             impressions=100,
             cost_micros=1500000,
             conversions=2.0,
