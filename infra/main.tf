@@ -47,10 +47,10 @@ resource "google_project_iam_member" "dagster_bq_job_user" {
   member  = "serviceAccount:${google_service_account.dagster.email}"
 }
 
-resource "google_project_iam_member" "dagster_storage_admin" {
-  project = var.project
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${google_service_account.dagster.email}"
+resource "google_storage_bucket_iam_member" "dagster_raw_bucket" {
+  bucket = google_storage_bucket.raw.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.dagster.email}"
 }
 
 resource "google_project_iam_member" "dagster_secret_accessor" {
