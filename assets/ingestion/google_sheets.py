@@ -1,13 +1,12 @@
 """Google Sheets ingestion assets."""
 
-import os
 import uuid
 from datetime import datetime
 
 from dagster import AssetExecutionContext, asset
 from dagster_gcp import BigQueryResource, GCSResource
 
-from assets.ingestion.resources import GoogleSheetsResource
+from assets.ingestion.resources import GoogleSheetsResource, IngestionConfig
 from assets.ingestion.schedules import daily_partitions
 from extract.google_sheets import extract as sheets_extract
 from load.bigquery import load as bq_load
@@ -31,12 +30,11 @@ def build_google_sheets_asset(sheet_name: str):
         gcs: GCSResource,
         bigquery: BigQueryResource,
         google_sheets: GoogleSheetsResource,
+        ingestion_env: IngestionConfig,
     ) -> None:
         """Extracts a Google Sheet and loads it into GCS and BigQuery."""
         partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
         run_id = str(uuid.uuid4())
-        project = os.environ["GCP_PROJECT_ID"]
-        bucket = os.environ["GCS_BUCKET"]
 
         client = google_sheets.get_client()
         table = sheets_extract.extract(
@@ -46,7 +44,7 @@ def build_google_sheets_asset(sheet_name: str):
         )
 
         gcs_config = GCSConfig(
-            bucket=bucket,
+            bucket=ingestion_env.bucket,
             source=f"google_sheets_{sheet_name}",
             partition_date=partition_date,
             run_id=run_id,
@@ -54,7 +52,7 @@ def build_google_sheets_asset(sheet_name: str):
         gcs_uri = gcs_load.load(table, gcs_config, gcs.get_client())
 
         bq_config = BigQueryConfig(
-            project=project,
+            project=ingestion_env.project,
             dataset=DATASET,
             table=f"google_sheets_{sheet_name}",
             partition_date=partition_date,
