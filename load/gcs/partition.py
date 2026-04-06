@@ -5,7 +5,7 @@ from datetime import date
 
 def build_gcs_blob_path(source: str, partition_date: date, run_id: str) -> str:
     """Builds a deterministic GCS blob path for a partitioned parquet file."""
-    date = partition_date.strftime("%Y-%m-%d")
+    date_str = partition_date.strftime("%Y-%m-%d")
     filename = f"{source}-{run_id}.parquet"
-    blob_path = f"{source}/date={date}/{filename}"
+    blob_path = f"{source}/date={date_str}/{filename}"
     return blob_path
