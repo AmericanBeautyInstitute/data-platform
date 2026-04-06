@@ -1,13 +1,14 @@
 """Google Ads ingestion asset."""
 
+import os
 import uuid
 from datetime import datetime
 
-from dagster import AssetExecutionContext, EnvVar, asset
+from dagster import AssetExecutionContext, asset
 from dagster_gcp import BigQueryResource, GCSResource
 
+from assets.ingestion.resources import GoogleAdsResource
 from assets.ingestion.schedules import daily_partitions
-from extract.google_ads import client as ads_client
 from extract.google_ads import extract as ads_extract
 from load.bigquery import load as bq_load
 from load.config import BigQueryConfig, GCSConfig
@@ -36,21 +37,19 @@ def google_ads_raw(
     context: AssetExecutionContext,
     gcs: GCSResource,
     bigquery: BigQueryResource,
+    google_ads: GoogleAdsResource,
 ) -> None:
     """Extracts Google Ads data and loads it into GCS and BigQuery."""
     partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
     run_id = str(uuid.uuid4())
     date_str = partition_date.isoformat()
+    project = os.environ["GCP_PROJECT_ID"]
+    bucket = os.environ["GCS_BUCKET"]
 
-    credentials_path = EnvVar("GOOGLE_ADS_CREDENTIALS_PATH").get_value()
-    customer_id = EnvVar("GOOGLE_ADS_CUSTOMER_ID").get_value()
-    project = EnvVar("GCP_PROJECT_ID").get_value()
-    bucket = EnvVar("GCS_BUCKET").get_value()
-
-    client = ads_client.build_client(credentials_path)
+    client = google_ads.get_client()
     table = ads_extract.extract(
         client,
-        customer_id,
+        google_ads.customer_id,
         QUERY.format(date=date_str),
     )
 

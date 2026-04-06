@@ -1,13 +1,14 @@
 """Google Analytics ingestion asset."""
 
+import os
 import uuid
 from datetime import datetime
 
-from dagster import AssetExecutionContext, EnvVar, asset
+from dagster import AssetExecutionContext, asset
 from dagster_gcp import BigQueryResource, GCSResource
 
+from assets.ingestion.resources import GoogleAnalyticsResource
 from assets.ingestion.schedules import daily_partitions
-from extract.google_analytics import client as ga_client
 from extract.google_analytics import extract as ga_extract
 from extract.google_analytics.extract import ReportConfig
 from load.bigquery import load as bq_load
@@ -31,21 +32,19 @@ def google_analytics_raw(
     context: AssetExecutionContext,
     gcs: GCSResource,
     bigquery: BigQueryResource,
+    google_analytics: GoogleAnalyticsResource,
 ) -> None:
     """Extracts Google Analytics data and loads it into GCS and BigQuery."""
     partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
     run_id = str(uuid.uuid4())
     date_str = partition_date.isoformat()
+    project = os.environ["GCP_PROJECT_ID"]
+    bucket = os.environ["GCS_BUCKET"]
 
-    credentials_path = EnvVar("GOOGLE_ANALYTICS_CREDENTIALS_PATH").get_value()
-    property_id = EnvVar("GOOGLE_ANALYTICS_PROPERTY_ID").get_value()
-    project = EnvVar("GCP_PROJECT_ID").get_value()
-    bucket = EnvVar("GCS_BUCKET").get_value()
-
-    client = ga_client.build_client(credentials_path)
+    client = google_analytics.get_client()
     table = ga_extract.extract(
         client,
-        property_id,
+        google_analytics.property_id,
         date_str,
         date_str,
         REPORT_CONFIG,
