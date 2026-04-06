@@ -21,6 +21,14 @@ class Record(BaseModel):
     data: dict[str, str]
 
 
+def extract(client, spreadsheet_id: str, sheet_name: str) -> pa.Table:
+    """Extracts Google Sheet data into a PyArrow table."""
+    raw = fetch(client, spreadsheet_id, sheet_name)
+    records = parse(raw)
+    table = to_table(records)
+    return table
+
+
 def fetch(client, spreadsheet_id: str, sheet_name: str) -> Raw:
     """Fetches raw data from a Google Sheet."""
     sheet = client.spreadsheets()
@@ -45,12 +53,4 @@ def to_table(records: list[Record]) -> pa.Table:
     """Converts a list of Records into a PyArrow table."""
     rows = [record.data for record in records]
     table = pa.Table.from_pylist(rows)
-    return table
-
-
-def extract(client, spreadsheet_id: str, sheet_name: str) -> pa.Table:
-    """Extracts Google Sheet data into a PyArrow table."""
-    raw = fetch(client, spreadsheet_id, sheet_name)
-    records = parse(raw)
-    table = to_table(records)
     return table
