@@ -16,8 +16,10 @@ from assets.ingestion.resources import (
     google_analytics_resource,
     google_sheets_resource,
     paypal_resource,
+    stripe_resource,
 )
 from assets.ingestion.schedules import daily_schedule
+from assets.ingestion.stripe import stripe_charges_raw
 
 ingestion_defs = Definitions(
     assets=[
@@ -25,6 +27,7 @@ ingestion_defs = Definitions(
         google_ads_raw,
         google_analytics_raw,
         paypal_transactions_raw,
+        stripe_charges_raw,
         *google_sheets_assets,
     ],
     jobs=[ingestion_job],
@@ -37,5 +40,6 @@ ingestion_defs = Definitions(
         "google_analytics": google_analytics_resource,
         "google_sheets": google_sheets_resource,
         "paypal": paypal_resource,
+        "stripe": stripe_resource,
     },
 )

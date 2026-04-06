@@ -3,6 +3,7 @@
 from dagster import ConfigurableResource, EnvVar
 from dagster_gcp import BigQueryResource, GCSResource
 from googleapiclient.discovery import Resource
+from stripe import StripeClient
 
 from extract.facebook_ads import client as fb_client
 from extract.facebook_ads.client import AdAccount
@@ -12,6 +13,7 @@ from extract.google_analytics import client as ga_client
 from extract.google_sheets import client as sheets_client
 from extract.paypal import client as paypal_client
 from extract.paypal.client import PayPalClient
+from extract.stripe import client as stripe_client
 
 
 class GoogleSheetsResource(ConfigurableResource):
@@ -69,6 +71,16 @@ class PayPalResource(ConfigurableResource):
         return paypal_client.build_client(self.client_id, self.client_secret)
 
 
+class StripeResource(ConfigurableResource):
+    """Resource for authenticating with the Stripe API."""
+
+    secret_key: str
+
+    def get_client(self) -> StripeClient:
+        """Builds and returns an authenticated Stripe API client."""
+        return stripe_client.build_client(self.secret_key)
+
+
 gcs_resource = GCSResource(project=EnvVar("GCP_PROJECT_ID"))
 bigquery_resource = BigQueryResource(project=EnvVar("GCP_PROJECT_ID"))
 
@@ -95,4 +107,8 @@ facebook_ads_resource = FacebookAdsResource(
 paypal_resource = PayPalResource(
     client_id=EnvVar("PAYPAL_CLIENT_ID"),
     client_secret=EnvVar("PAYPAL_CLIENT_SECRET"),
+)
+
+stripe_resource = StripeResource(
+    secret_key=EnvVar("STRIPE_SECRET_KEY"),
 )
