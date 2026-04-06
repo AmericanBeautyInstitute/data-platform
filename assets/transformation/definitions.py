@@ -1,16 +1,22 @@
 """Transformation layer Dagster definitions."""
 
-from dagster import Definitions
-from dagster_sqlmesh import SQLMeshDagsterTranslator, sqlmesh_assets
+from pathlib import Path
 
-from assets.transformation.resources import sqlmesh_resource
+from dagster import AssetExecutionContext, Definitions
+from dagster_sqlmesh import SQLMeshContextConfig, SQLMeshResource, sqlmesh_assets
 
+_SQLMESH_PROJECT_DIR = str(Path(__file__).parent.parent.parent / "transform")
 
-@sqlmesh_assets(
-    environment="prod",
-    translator=SQLMeshDagsterTranslator(),
+_sqlmesh_config = SQLMeshContextConfig(
+    path=_SQLMESH_PROJECT_DIR,
+    gateway="bigquery",
 )
-def sqlmesh_all_models(context, sqlmesh):
+
+sqlmesh_resource = SQLMeshResource(config=_sqlmesh_config)
+
+
+@sqlmesh_assets(environment="prod", config=_sqlmesh_config)
+def sqlmesh_all_models(context: AssetExecutionContext, sqlmesh: SQLMeshResource):
     """Materializes all SQLMesh models via the dagster-sqlmesh integration."""
     yield from sqlmesh.run(context)
 
