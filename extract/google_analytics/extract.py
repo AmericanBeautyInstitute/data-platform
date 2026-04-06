@@ -65,6 +65,20 @@ def extract(
     return table
 
 
+def fetch(
+    client: BetaAnalyticsDataClient,
+    property_id: str,
+    start_date: str,
+    end_date: str,
+    config: ReportConfig,
+) -> list[Raw]:
+    """Fetches raw data from the GA4 API."""
+    request = _build_request(property_id, start_date, end_date, config)
+    response = client.run_report(request)
+    raw_rows = _parse_response(response, config)
+    return raw_rows
+
+
 def _build_request(
     property_id: str,
     start_date: str,
@@ -105,20 +119,6 @@ def _parse_response(
         )
         rows.append(raw)
     return rows
-
-
-def fetch(
-    client: BetaAnalyticsDataClient,
-    property_id: str,
-    start_date: str,
-    end_date: str,
-    config: ReportConfig,
-) -> list[Raw]:
-    """Fetches raw data from the GA4 API."""
-    request = _build_request(property_id, start_date, end_date, config)
-    response = client.run_report(request)
-    raw_rows = _parse_response(response, config)
-    return raw_rows
 
 
 def parse(raw: Raw, config: ReportConfig) -> Record:
