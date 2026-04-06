@@ -2,15 +2,10 @@ storage:
   sqlite:
     base_dir: /var/dagster/home
 
-run_launcher:
-  module: dagster.core.launcher
-  class: DefaultRunLauncher
-
-executor:
-  module: dagster.core.executor.multiprocess
-  class: MultiprocessExecutor
-  config:
-    max_concurrent: 1
+code_server:
+  grpc:
+    host: 127.0.0.1
+    port: 4266
 
 telemetry:
   enabled: false
