@@ -1,1 +1,1 @@
-"""The data platform tests."""
+"""Data platform tests."""
