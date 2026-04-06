@@ -3,8 +3,10 @@
 from datetime import UTC, date, datetime
 
 import pyarrow as pa
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from stripe import StripeClient
+
+from extract.table import to_table
 
 PAGE_SIZE = 100
 
@@ -34,11 +36,21 @@ class Record(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     charge_id: str
-    charge_date: date
-    gross_amount_usd: float
-    amount_captured_usd: float
-    fee_usd: float
-    net_usd: float
+    charge_date: date = Field(
+        validation_alias=AliasChoices("charge_date", "created"),
+    )
+    gross_amount_usd: float = Field(
+        validation_alias=AliasChoices("gross_amount_usd", "amount"),
+    )
+    amount_captured_usd: float = Field(
+        validation_alias=AliasChoices("amount_captured_usd", "amount_captured"),
+    )
+    fee_usd: float = Field(
+        validation_alias=AliasChoices("fee_usd", "fee"),
+    )
+    net_usd: float = Field(
+        validation_alias=AliasChoices("net_usd", "net"),
+    )
     currency: str
     status: str
     description: str
@@ -54,7 +66,8 @@ class Record(BaseModel):
             return v
         if not isinstance(v, int):
             raise ValueError(f"charge_date must be a Unix timestamp int, got {type(v)}")
-        return datetime.fromtimestamp(v, tz=UTC).date()
+        dt = datetime.fromtimestamp(v, tz=UTC)
+        return dt.date()
 
     @field_validator(
         "gross_amount_usd",
@@ -66,7 +79,9 @@ class Record(BaseModel):
     @classmethod
     def cents_to_dollars(cls, v: int | float) -> float:
         """Converts Stripe integer cents to float dollars."""
-        return round(int(v) / 100, 2)
+        cents = int(v)
+        dollars = round(cents / 100, 2)
+        return dollars
 
 
 def extract(client: StripeClient, start_date: str, end_date: str) -> pa.Table:
@@ -82,7 +97,9 @@ def _date_to_timestamp(date_str: str, end_of_day: bool = False) -> int:
     dt = datetime.fromisoformat(date_str)
     if end_of_day:
         dt = dt.replace(hour=23, minute=59, second=59)
-    return int(dt.replace(tzinfo=UTC).timestamp())
+    utc_dt = dt.replace(tzinfo=UTC)
+    timestamp = int(utc_dt.timestamp())
+    return timestamp
 
 
 def _to_raw(charge: dict) -> Raw:
@@ -136,39 +153,4 @@ def fetch(client: StripeClient, start_date: str, end_date: str) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Stripe charge into a typed Record."""
-    return Record(
-        charge_id=raw.charge_id,
-        charge_date=raw.created,
-        gross_amount_usd=raw.amount,
-        amount_captured_usd=raw.amount_captured,
-        fee_usd=raw.fee,
-        net_usd=raw.net,
-        currency=raw.currency,
-        status=raw.status,
-        description=raw.description,
-        customer_email=raw.customer_email,
-        customer_name=raw.customer_name,
-        payment_intent_id=raw.payment_intent_id,
-    )
-
-
-def to_table(records: list[Record]) -> pa.Table:
-    """Converts a list of Records into a PyArrow table."""
-    rows = [
-        {
-            "charge_id": r.charge_id,
-            "charge_date": r.charge_date.isoformat(),
-            "gross_amount_usd": r.gross_amount_usd,
-            "amount_captured_usd": r.amount_captured_usd,
-            "fee_usd": r.fee_usd,
-            "net_usd": r.net_usd,
-            "currency": r.currency,
-            "status": r.status,
-            "description": r.description,
-            "customer_email": r.customer_email,
-            "customer_name": r.customer_name,
-            "payment_intent_id": r.payment_intent_id,
-        }
-        for r in records
-    ]
-    return pa.Table.from_pylist(rows)
+    return Record(**raw.model_dump())
