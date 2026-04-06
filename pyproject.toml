@@ -51,9 +51,6 @@ fail_under = 0
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.pyright]
-include = ["data-platform"]
-
 [tool.ruff]
 target-version = "py311"
 line-length = 88
