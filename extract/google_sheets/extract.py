@@ -25,7 +25,7 @@ def extract(client, spreadsheet_id: str, sheet_name: str) -> pa.Table:
     """Extracts Google Sheet data into a PyArrow table."""
     raw = fetch(client, spreadsheet_id, sheet_name)
     records = parse(raw)
-    table = to_table(records)
+    table = pa.Table.from_pylist([record.data for record in records])
     return table
 
 
@@ -47,10 +47,3 @@ def parse(raw: Raw) -> list[Record]:
         Record(data=dict(zip(raw.headers, row, strict=True))) for row in raw.rows
     ]
     return records
-
-
-def to_table(records: list[Record]) -> pa.Table:
-    """Converts a list of Records into a PyArrow table."""
-    rows = [record.data for record in records]
-    table = pa.Table.from_pylist(rows)
-    return table

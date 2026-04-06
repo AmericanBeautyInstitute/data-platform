@@ -3,9 +3,10 @@
 from datetime import date
 
 import pyarrow as pa
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from extract.paypal.client import PayPalClient
+from extract.table import to_table
 
 PAGE_SIZE = 500
 
@@ -34,14 +35,20 @@ class Record(BaseModel):
 
     transaction_id: str
     transaction_date: date
-    gross_amount_usd: float
+    gross_amount_usd: float = Field(
+        validation_alias=AliasChoices("gross_amount_usd", "transaction_amount"),
+    )
     currency_code: str
     transaction_status: str
     transaction_subject: str
     payer_email: str
     payer_name: str
-    fee_amount_usd: float
-    net_amount_usd: float
+    fee_amount_usd: float = Field(
+        validation_alias=AliasChoices("fee_amount_usd", "fee_amount"),
+    )
+    net_amount_usd: float = Field(
+        validation_alias=AliasChoices("net_amount_usd", "net_amount"),
+    )
 
     @field_validator("transaction_date", mode="before")
     @classmethod
@@ -128,35 +135,4 @@ def fetch(client: PayPalClient, start_date: str, end_date: str) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw PayPal transaction into a typed Record."""
-    return Record(
-        transaction_id=raw.transaction_id,
-        transaction_date=raw.transaction_date,
-        gross_amount_usd=raw.transaction_amount,
-        currency_code=raw.currency_code,
-        transaction_status=raw.transaction_status,
-        transaction_subject=raw.transaction_subject,
-        payer_email=raw.payer_email,
-        payer_name=raw.payer_name,
-        fee_amount_usd=raw.fee_amount,
-        net_amount_usd=raw.net_amount,
-    )
-
-
-def to_table(records: list[Record]) -> pa.Table:
-    """Converts a list of Records into a PyArrow table."""
-    rows = [
-        {
-            "transaction_id": r.transaction_id,
-            "transaction_date": r.transaction_date.isoformat(),
-            "gross_amount_usd": r.gross_amount_usd,
-            "currency_code": r.currency_code,
-            "transaction_status": r.transaction_status,
-            "transaction_subject": r.transaction_subject,
-            "payer_email": r.payer_email,
-            "payer_name": r.payer_name,
-            "fee_amount_usd": r.fee_amount_usd,
-            "net_amount_usd": r.net_amount_usd,
-        }
-        for r in records
-    ]
-    return pa.Table.from_pylist(rows)
+    return Record(**raw.model_dump())

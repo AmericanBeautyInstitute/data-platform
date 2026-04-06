@@ -22,7 +22,8 @@ class PayPalClient:
             data={"grant_type": "client_credentials"},
         )
         response.raise_for_status()
-        return response.json()["access_token"]
+        data = response.json()
+        return data["access_token"]
 
     def get(self, path: str, params: dict | None = None) -> dict:
         """Makes an authenticated GET request to the PayPal API."""
