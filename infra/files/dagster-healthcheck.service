@@ -1,0 +1,6 @@
+[Unit]
+Description=Dagster Health Check
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/dagster-healthcheck.sh
