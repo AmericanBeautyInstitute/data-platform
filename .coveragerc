@@ -1,5 +1,6 @@
 [run]
 source =
+    assets
     extract
     load
     transform
