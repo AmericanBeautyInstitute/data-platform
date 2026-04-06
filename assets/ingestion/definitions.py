@@ -7,6 +7,7 @@ from assets.ingestion.google_ads import google_ads_raw
 from assets.ingestion.google_analytics import google_analytics_raw
 from assets.ingestion.google_sheets import google_sheets_assets
 from assets.ingestion.jobs import ingestion_job
+from assets.ingestion.paypal import paypal_transactions_raw
 from assets.ingestion.resources import (
     bigquery_resource,
     facebook_ads_resource,
@@ -14,6 +15,7 @@ from assets.ingestion.resources import (
     google_ads_resource,
     google_analytics_resource,
     google_sheets_resource,
+    paypal_resource,
 )
 from assets.ingestion.schedules import daily_schedule
 
@@ -22,6 +24,7 @@ ingestion_defs = Definitions(
         facebook_ads_raw,
         google_ads_raw,
         google_analytics_raw,
+        paypal_transactions_raw,
         *google_sheets_assets,
     ],
     jobs=[ingestion_job],
@@ -33,5 +36,6 @@ ingestion_defs = Definitions(
         "google_ads": google_ads_resource,
         "google_analytics": google_analytics_resource,
         "google_sheets": google_sheets_resource,
+        "paypal": paypal_resource,
     },
 )
