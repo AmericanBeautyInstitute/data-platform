@@ -1,1 +1,1 @@
-"""Google Ads API Extractor."""
+"""Google Ads extractor."""

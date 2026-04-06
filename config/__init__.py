@@ -1,1 +1,1 @@
-"""Data platform configurations."""
+"""Config layer."""

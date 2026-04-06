@@ -1,1 +1,1 @@
-"""Dagster assets."""
+"""Assets layer."""

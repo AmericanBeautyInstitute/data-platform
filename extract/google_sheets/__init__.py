@@ -1,1 +1,1 @@
-"""Google Sheets API Extractor."""
+"""Google Sheets extractor."""

@@ -1,1 +1,1 @@
-"""BigQuery Loader."""
+"""BigQuery loader."""

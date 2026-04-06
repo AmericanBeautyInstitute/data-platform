@@ -1,8 +1,8 @@
-"""Tests for Dagster GCP resources."""
+"""Tests for ingestion layer resources."""
 
 from dagster_gcp import BigQueryResource, GCSResource
 
-from assets.resources import bigquery_resource, gcs_resource
+from assets.ingestion.resources import bigquery_resource, gcs_resource
 
 
 def test_gcs_resource_is_correct_type():

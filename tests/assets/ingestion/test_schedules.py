@@ -2,7 +2,7 @@
 
 from dagster import DailyPartitionsDefinition, ScheduleDefinition
 
-from assets.schedules import START_DATE, daily_partitions, daily_schedule
+from assets.ingestion.schedules import START_DATE, daily_partitions, daily_schedule
 
 
 def test_daily_schedule_is_schedule_definition():
