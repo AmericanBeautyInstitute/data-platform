@@ -1,1 +1,1 @@
-"""Google Analytics API Extractor."""
+"""Google Analytics extractor."""

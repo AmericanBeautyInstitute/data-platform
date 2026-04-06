@@ -1,8 +1,8 @@
-"""Dagster schedule definitions."""
+"""Ingestion layer Dagster schedule definitions."""
 
 from dagster import DailyPartitionsDefinition, ScheduleDefinition
 
-from assets.jobs import all_assets_job
+from assets.ingestion.jobs import ingestion_job
 
 START_DATE = "2024-01-01"
 
@@ -12,7 +12,7 @@ daily_partitions = DailyPartitionsDefinition(
 )
 
 daily_schedule = ScheduleDefinition(
-    job=all_assets_job,
+    job=ingestion_job,
     cron_schedule="0 6 * * *",
     execution_timezone="America/New_York",
 )
