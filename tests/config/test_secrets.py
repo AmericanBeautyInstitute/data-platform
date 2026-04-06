@@ -3,7 +3,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import NotFound
 
+import config.secrets
 from config.secrets import get_secret
 
 EXPECTED_SINGLE_CALL_COUNT = 1
@@ -12,10 +14,12 @@ EXPECTED_DOUBLE_CALL_COUNT = 2
 
 @pytest.fixture(autouse=True)
 def clear_cache():
-    """Clear lru_cache between tests to prevent state leaking."""
+    """Clear functools.cache and shared client between tests."""
     get_secret.cache_clear()
+    config.secrets._state.clear()
     yield
     get_secret.cache_clear()
+    config.secrets._state.clear()
 
 
 def test_returns_env_variable_when_set(monkeypatch):
@@ -31,7 +35,7 @@ def test_env_variable_does_not_call_secret_manager(monkeypatch):
     """Secret Manager is never called when env variable exists."""
     monkeypatch.setenv("MY_SECRET", "env_value")
 
-    with patch("config.secrets.secretmanager.SecretManagerServiceClient") as mock:
+    with patch("config.secrets._get_client") as mock:
         get_secret("MY_SECRET", "my-project")
         mock.assert_not_called()
 
@@ -43,10 +47,7 @@ def test_calls_secret_manager_when_no_env_variable(monkeypatch):
     mock_client = MagicMock()
     mock_client.access_secret_version.return_value.payload.data = b"secret_value"
 
-    with patch(
-        "config.secrets.secretmanager.SecretManagerServiceClient",
-        return_value=mock_client,
-    ):
+    with patch("config.secrets._get_client", return_value=mock_client):
         result = get_secret("MY_SECRET", "my-project")
 
     assert result == "secret_value"
@@ -59,10 +60,7 @@ def test_secret_manager_called_with_correct_path(monkeypatch):
     mock_client = MagicMock()
     mock_client.access_secret_version.return_value.payload.data = b"value"
 
-    with patch(
-        "config.secrets.secretmanager.SecretManagerServiceClient",
-        return_value=mock_client,
-    ):
+    with patch("config.secrets._get_client", return_value=mock_client):
         get_secret("MY_SECRET", "my-project")
 
     mock_client.access_secret_version.assert_called_once_with(
@@ -77,10 +75,7 @@ def test_cache_prevents_repeated_secret_manager_calls(monkeypatch):
     mock_client = MagicMock()
     mock_client.access_secret_version.return_value.payload.data = b"value"
 
-    with patch(
-        "config.secrets.secretmanager.SecretManagerServiceClient",
-        return_value=mock_client,
-    ):
+    with patch("config.secrets._get_client", return_value=mock_client):
         get_secret("MY_SECRET", "my-project")
         get_secret("MY_SECRET", "my-project")
 
@@ -95,10 +90,7 @@ def test_different_secrets_each_call_secret_manager(monkeypatch):
     mock_client = MagicMock()
     mock_client.access_secret_version.return_value.payload.data = b"value"
 
-    with patch(
-        "config.secrets.secretmanager.SecretManagerServiceClient",
-        return_value=mock_client,
-    ):
+    with patch("config.secrets._get_client", return_value=mock_client):
         get_secret("SECRET_A", "my-project")
         get_secret("SECRET_B", "my-project")
 
@@ -110,13 +102,10 @@ def test_raises_value_error_when_secret_not_found(monkeypatch):
     monkeypatch.delenv("MY_SECRET", raising=False)
 
     mock_client = MagicMock()
-    mock_client.access_secret_version.side_effect = Exception("Not found")
+    mock_client.access_secret_version.side_effect = NotFound("Not found")
 
     with (
-        patch(
-            "config.secrets.secretmanager.SecretManagerServiceClient",
-            return_value=mock_client,
-        ),
+        patch("config.secrets._get_client", return_value=mock_client),
         pytest.raises(ValueError, match="MY_SECRET"),
     ):
         get_secret("MY_SECRET", "my-project")
@@ -126,15 +115,12 @@ def test_raises_value_error_preserves_original_cause(monkeypatch):
     """ValueError chains the original exception for debugging."""
     monkeypatch.delenv("MY_SECRET", raising=False)
 
-    original_error = Exception("Original cause")
+    original_error = NotFound("Original cause")
     mock_client = MagicMock()
     mock_client.access_secret_version.side_effect = original_error
 
     with (
-        patch(
-            "config.secrets.secretmanager.SecretManagerServiceClient",
-            return_value=mock_client,
-        ),
+        patch("config.secrets._get_client", return_value=mock_client),
         pytest.raises(ValueError) as exc_info,
     ):
         get_secret("MY_SECRET", "my-project")
