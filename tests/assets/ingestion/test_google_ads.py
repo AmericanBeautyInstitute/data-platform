@@ -7,7 +7,11 @@ import pytest
 from dagster import DailyPartitionsDefinition, materialize
 
 from assets.ingestion.google_ads import QUERY, TABLE, google_ads_raw
-from assets.ingestion.resources import bigquery_resource, gcs_resource
+from assets.ingestion.resources import (
+    GoogleAdsResource,
+    bigquery_resource,
+    gcs_resource,
+)
 
 PARTITION_KEY = "2024-01-15"
 FAKE_GCS_URI = "gs://my-bucket/google_ads/date=2024-01-15/google_ads-run-id.parquet"
@@ -33,10 +37,17 @@ SAMPLE_TABLE = pa.table(
 @pytest.fixture
 def env_vars(monkeypatch):
     """Sets required environment variables for asset execution."""
-    monkeypatch.setenv("GOOGLE_ADS_CREDENTIALS_PATH", FAKE_CREDENTIALS_PATH)
-    monkeypatch.setenv("GOOGLE_ADS_CUSTOMER_ID", FAKE_CUSTOMER_ID)
     monkeypatch.setenv("GCP_PROJECT_ID", FAKE_PROJECT)
     monkeypatch.setenv("GCS_BUCKET", FAKE_BUCKET)
+
+
+@pytest.fixture
+def google_ads_resource():
+    """GoogleAdsResource with fake credentials."""
+    return GoogleAdsResource(
+        credentials_path=FAKE_CREDENTIALS_PATH,
+        customer_id=FAKE_CUSTOMER_ID,
+    )
 
 
 def test_asset_name():
@@ -59,13 +70,9 @@ def test_query_contains_date_placeholder():
     assert "{date}" in QUERY
 
 
-def test_materialize_succeeds(env_vars):
+def test_materialize_succeeds(env_vars, google_ads_resource):
     """Asset materializes without error using mocked dependencies."""
     with (
-        patch(
-            "assets.ingestion.google_ads.ads_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch(
             "assets.ingestion.google_ads.ads_extract.extract", return_value=SAMPLE_TABLE
         ),
@@ -75,25 +82,29 @@ def test_materialize_succeeds(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         result = materialize(
             [google_ads_raw],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_ads": google_ads_resource,
+            },
         )
 
     assert result.success
 
 
-def test_materialize_passes_formatted_query_to_extract(env_vars):
+def test_materialize_passes_formatted_query_to_extract(env_vars, google_ads_resource):
     """extract() is called with the partition date substituted into the query."""
     mock_extract = MagicMock(return_value=SAMPLE_TABLE)
 
     with (
-        patch(
-            "assets.ingestion.google_ads.ads_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch("assets.ingestion.google_ads.ads_extract.extract", mock_extract),
         patch("assets.ingestion.google_ads.gcs_load.load", return_value=FAKE_GCS_URI),
         patch(
@@ -101,11 +112,19 @@ def test_materialize_passes_formatted_query_to_extract(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         materialize(
             [google_ads_raw],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_ads": google_ads_resource,
+            },
         )
 
     query_arg = mock_extract.call_args[0][2]
@@ -113,15 +132,11 @@ def test_materialize_passes_formatted_query_to_extract(env_vars):
     assert "{date}" not in query_arg
 
 
-def test_materialize_passes_customer_id_to_extract(env_vars):
-    """extract() is called with the correct customer ID."""
+def test_materialize_passes_customer_id_to_extract(env_vars, google_ads_resource):
+    """extract() is called with customer_id from the resource."""
     mock_extract = MagicMock(return_value=SAMPLE_TABLE)
 
     with (
-        patch(
-            "assets.ingestion.google_ads.ads_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch("assets.ingestion.google_ads.ads_extract.extract", mock_extract),
         patch("assets.ingestion.google_ads.gcs_load.load", return_value=FAKE_GCS_URI),
         patch(
@@ -129,25 +144,29 @@ def test_materialize_passes_customer_id_to_extract(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         materialize(
             [google_ads_raw],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_ads": google_ads_resource,
+            },
         )
 
     assert mock_extract.call_args[0][1] == FAKE_CUSTOMER_ID
 
 
-def test_materialize_gcs_source_is_table_name(env_vars):
+def test_materialize_gcs_source_is_table_name(env_vars, google_ads_resource):
     """GCS load is called with source equal to TABLE constant."""
     mock_gcs_load = MagicMock(return_value=FAKE_GCS_URI)
 
     with (
-        patch(
-            "assets.ingestion.google_ads.ads_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch(
             "assets.ingestion.google_ads.ads_extract.extract", return_value=SAMPLE_TABLE
         ),
@@ -157,24 +176,28 @@ def test_materialize_gcs_source_is_table_name(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         materialize(
             [google_ads_raw],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_ads": google_ads_resource,
+            },
         )
 
     gcs_config_arg = mock_gcs_load.call_args[0][1]
     assert gcs_config_arg.source == TABLE
 
 
-def test_materialize_output_metadata_keys(env_vars):
+def test_materialize_output_metadata_keys(env_vars, google_ads_resource):
     """Output metadata contains all expected keys."""
     with (
-        patch(
-            "assets.ingestion.google_ads.ads_client.build_client",
-            return_value=MagicMock(),
-        ),
         patch(
             "assets.ingestion.google_ads.ads_extract.extract", return_value=SAMPLE_TABLE
         ),
@@ -184,11 +207,19 @@ def test_materialize_output_metadata_keys(env_vars):
         ),
         patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
         patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
     ):
         result = materialize(
             [google_ads_raw],
             partition_key=PARTITION_KEY,
-            resources={"gcs": gcs_resource, "bigquery": bigquery_resource},
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_ads": google_ads_resource,
+            },
         )
 
     mat_event = result.get_asset_materialization_events()[0]
