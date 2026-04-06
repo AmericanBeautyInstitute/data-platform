@@ -10,6 +10,7 @@ from assets.ingestion.resources import (
     GoogleAnalyticsResource,
     GoogleSheetsResource,
     PayPalResource,
+    StripeResource,
     bigquery_resource,
     facebook_ads_resource,
     gcs_resource,
@@ -17,6 +18,7 @@ from assets.ingestion.resources import (
     google_analytics_resource,
     google_sheets_resource,
     paypal_resource,
+    stripe_resource,
 )
 
 FAKE_CREDENTIALS_PATH = "/tmp/creds.json"
@@ -27,6 +29,7 @@ FAKE_ACCESS_TOKEN = "fake-access-token"
 FAKE_AD_ACCOUNT_ID = "act_123456789"
 FAKE_CLIENT_ID = "fake-client-id"
 FAKE_CLIENT_SECRET = "fake-client-secret"
+FAKE_SECRET_KEY = "sk_test_fake"
 
 
 def test_gcs_resource_is_correct_type():
@@ -62,6 +65,11 @@ def test_facebook_ads_resource_is_correct_type():
 def test_paypal_resource_is_correct_type():
     """paypal_resource is a PayPalResource instance."""
     assert isinstance(paypal_resource, PayPalResource)
+
+
+def test_stripe_resource_is_correct_type():
+    """stripe_resource is a StripeResource instance."""
+    assert isinstance(stripe_resource, StripeResource)
 
 
 def test_google_sheets_resource_exposes_spreadsheet_id():
@@ -107,6 +115,12 @@ def test_paypal_resource_exposes_client_id():
         client_secret=FAKE_CLIENT_SECRET,
     )
     assert resource.client_id == FAKE_CLIENT_ID
+
+
+def test_stripe_resource_exposes_secret_key():
+    """StripeResource exposes secret_key field."""
+    resource = StripeResource(secret_key=FAKE_SECRET_KEY)
+    assert resource.secret_key == FAKE_SECRET_KEY
 
 
 def test_google_sheets_resource_get_client_calls_build_client():
@@ -162,3 +176,11 @@ def test_paypal_resource_get_client_calls_build_client():
     with patch("assets.ingestion.resources.paypal_client.build_client") as mock_build:
         resource.get_client()
         mock_build.assert_called_once_with(FAKE_CLIENT_ID, FAKE_CLIENT_SECRET)
+
+
+def test_stripe_resource_get_client_calls_build_client():
+    """get_client() delegates to stripe_client.build_client."""
+    resource = StripeResource(secret_key=FAKE_SECRET_KEY)
+    with patch("assets.ingestion.resources.stripe_client.build_client") as mock_build:
+        resource.get_client()
+        mock_build.assert_called_once_with(FAKE_SECRET_KEY)
