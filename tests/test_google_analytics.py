@@ -79,9 +79,6 @@ def records(raw_rows, config):
     return [parse(r, config) for r in raw_rows]
 
 
-# -- _build_request -----------------------------------------------------------
-
-
 def test_build_request_sets_property():
     """Property ID is prefixed with 'properties/'."""
     cfg = ReportConfig(
@@ -119,9 +116,6 @@ def test_build_request_sets_metrics(config):
     assert [m.name for m in request.metrics] == config.metric_names
 
 
-# -- _parse_response ----------------------------------------------------------
-
-
 def test_parse_response_returns_raw_list(mock_client, config):
     """Returns a list of Raw instances."""
     result = _parse_response(mock_client.run_report.return_value, config)
@@ -142,9 +136,6 @@ def test_parse_response_extracts_date(mock_client, config):
 
     assert result[0].date == "20240101"
     assert result[1].date == "20240102"
-
-
-# -- extract ------------------------------------------------------------------
 
 
 def test_extract_returns_pyarrow_table(mock_client, config):
@@ -182,9 +173,6 @@ def test_extract_composes_fetch_parse_to_table(mock_client, config):
     assert result.equals(expected)
 
 
-# -- fetch --------------------------------------------------------------------
-
-
 def test_fetch_returns_list_of_raw(mock_client, config):
     """Returns a list of Raw instances."""
     result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
@@ -204,9 +192,6 @@ def test_fetch_row_count(mock_client, config):
     result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
 
     assert len(result) == EXPECTED_ROW_COUNT
-
-
-# -- parse --------------------------------------------------------------------
 
 
 def test_parse_returns_record(raw_rows, config):
@@ -243,9 +228,6 @@ def test_parse_record_is_immutable(raw_rows, config):
 
     with pytest.raises(ValidationError):
         result.date = date(2025, 1, 1)
-
-
-# -- to_table -----------------------------------------------------------------
 
 
 def test_to_table_returns_pyarrow_table(records, config):
@@ -299,18 +281,12 @@ def test_to_table_empty_records_returns_empty_table(config):
     assert result.num_rows == 0
 
 
-# -- Raw model ----------------------------------------------------------------
-
-
 def test_raw_is_immutable():
     """Raw instances cannot be mutated."""
     raw = Raw(date="20240101", dimensions=["20240101", "Japan"], metrics=["100", "500"])
 
     with pytest.raises(ValidationError):
         raw.date = "20240102"
-
-
-# -- Record model -------------------------------------------------------------
 
 
 def test_record_date_validator_accepts_date_object():
@@ -328,7 +304,7 @@ def test_record_date_validator_accepts_date_object():
 def test_record_date_validator_parses_yyyymmdd_string():
     """Date validator correctly parses YYYYMMDD string."""
     record = Record(
-        date="20240115",
+        date="20240115",  # type: ignore[arg-type]
         dimensions={"date": "20240115", "country": "Japan"},
         metrics={"sessions": "100", "pageviews": "500"},
     )
