@@ -45,7 +45,7 @@ deploy:
 		--zone=us-east1-b \
 		--tunnel-through-iap \
 		--project=american-beauty-institute \
-		--command="cd /opt/data-platform && git pull && systemctl restart dagster"
+		--command="cd /home/dagster/data-platform && sudo -u dagster git pull && sudo -u dagster /home/dagster/.local/bin/uv sync && sudo systemctl restart dagster-code && sudo systemctl restart dagster"
 
 ################################################################################
 
