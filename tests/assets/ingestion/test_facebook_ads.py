@@ -9,9 +9,12 @@ from dagster import DailyPartitionsDefinition, materialize
 from assets.ingestion.facebook_ads import TABLE, facebook_ads_raw
 from assets.ingestion.resources import (
     FacebookAdsResource,
+    IngestionConfig,
     bigquery_resource,
     gcs_resource,
 )
+
+ingestion_config = IngestionConfig(project="fake-project", bucket="my-bucket")
 
 PARTITION_KEY = "2024-01-15"
 FAKE_GCS_URI = "gs://my-bucket/facebook_ads/date=2024-01-15/facebook_ads-run-id.parquet"
@@ -95,6 +98,7 @@ def test_materialize_succeeds(env_vars, facebook_ads_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "facebook_ads": facebook_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -125,6 +129,7 @@ def test_materialize_passes_date_range_to_extract(env_vars, facebook_ads_resourc
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "facebook_ads": facebook_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -160,6 +165,7 @@ def test_materialize_gcs_source_is_table_name(env_vars, facebook_ads_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "facebook_ads": facebook_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -192,6 +198,7 @@ def test_materialize_output_metadata_keys(env_vars, facebook_ads_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "facebook_ads": facebook_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 

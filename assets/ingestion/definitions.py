@@ -15,6 +15,7 @@ from assets.ingestion.resources import (
     google_ads_resource,
     google_analytics_resource,
     google_sheets_resource,
+    ingestion_env,
     paypal_resource,
     stripe_resource,
 )
@@ -34,6 +35,7 @@ ingestion_defs = Definitions(
     schedules=[daily_schedule],
     resources={
         "bigquery": bigquery_resource,
+        "ingestion_env": ingestion_env,
         "facebook_ads": facebook_ads_resource,
         "gcs": gcs_resource,
         "google_ads": google_ads_resource,

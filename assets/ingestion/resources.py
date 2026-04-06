@@ -16,6 +16,13 @@ from extract.paypal.client import PayPalClient
 from extract.stripe import client as stripe_client
 
 
+class IngestionConfig(ConfigurableResource):
+    """Shared GCP project and bucket config for all ingestion assets."""
+
+    project: str
+    bucket: str
+
+
 class GoogleSheetsResource(ConfigurableResource):
     """Resource for authenticating with the Google Sheets API."""
 
@@ -80,6 +87,11 @@ class StripeResource(ConfigurableResource):
         """Builds and returns an authenticated Stripe API client."""
         return stripe_client.build_client(self.secret_key)
 
+
+ingestion_env = IngestionConfig(
+    project=EnvVar("GCP_PROJECT_ID"),
+    bucket=EnvVar("GCS_BUCKET"),
+)
 
 gcs_resource = GCSResource(project=EnvVar("GCP_PROJECT_ID"))
 bigquery_resource = BigQueryResource(project=EnvVar("GCP_PROJECT_ID"))

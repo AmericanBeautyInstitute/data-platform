@@ -13,9 +13,12 @@ from assets.ingestion.google_sheets import (
 )
 from assets.ingestion.resources import (
     GoogleSheetsResource,
+    IngestionConfig,
     bigquery_resource,
     gcs_resource,
 )
+
+ingestion_config = IngestionConfig(project="fake-project", bucket="my-bucket")
 
 EXPECTED_ASSET_COUNT = 3
 EXPECTED_METADATA_KEYS = {"rows_loaded", "gcs_uri", "partition_date", "sheet_name"}
@@ -110,6 +113,7 @@ def test_materialize_students_asset(env_vars, google_sheets_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_sheets": google_sheets_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -143,6 +147,7 @@ def test_materialize_passes_sheet_name_to_extract(env_vars, google_sheets_resour
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_sheets": google_sheets_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -177,6 +182,7 @@ def test_materialize_gcs_source_includes_sheet_name(env_vars, google_sheets_reso
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_sheets": google_sheets_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -213,6 +219,7 @@ def test_materialize_output_metadata_keys(env_vars, google_sheets_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_sheets": google_sheets_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
