@@ -7,6 +7,8 @@ from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.adsinsights import AdsInsights
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from extract.table import to_table
+
 INSIGHT_FIELDS = [
     AdsInsights.Field.date_start,
     AdsInsights.Field.campaign_id,
@@ -86,7 +88,8 @@ def _extract_action(actions: list[dict], action_type: str) -> int:
     """Extracts the value for a specific action type from actions list."""
     for action in actions:
         if action.get("action_type") == action_type:
-            return int(float(action.get("value", 0)))
+            value = int(float(action.get("value", 0)))
+            return value
     return 0
 
 
@@ -113,7 +116,8 @@ def fetch(client: AdAccount, start_date: str, end_date: str) -> list[Raw]:
         "time_increment": 1,
     }
     insights = client.get_insights(fields=INSIGHT_FIELDS, params=params)
-    return [_to_raw(dict(row)) for row in insights]
+    raw_rows = [_to_raw(dict(row)) for row in insights]
+    return raw_rows
 
 
 def parse(raw: Raw) -> Record:
@@ -133,24 +137,3 @@ def parse(raw: Raw) -> Record:
             raw.actions, "offsite_conversion.fb_pixel_purchase"
         ),
     )
-
-
-def to_table(records: list[Record]) -> pa.Table:
-    """Converts a list of Records into a PyArrow table."""
-    rows = [
-        {
-            "date": record.date.isoformat(),
-            "campaign_id": record.campaign_id,
-            "campaign_name": record.campaign_name,
-            "impressions": record.impressions,
-            "clicks": record.clicks,
-            "spend_usd": record.spend_usd,
-            "reach": record.reach,
-            "frequency": record.frequency,
-            "link_clicks": record.link_clicks,
-            "leads": record.leads,
-            "conversions": record.conversions,
-        }
-        for record in records
-    ]
-    return pa.Table.from_pylist(rows)

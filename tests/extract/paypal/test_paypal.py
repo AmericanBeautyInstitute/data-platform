@@ -14,8 +14,8 @@ from extract.paypal.extract import (
     extract,
     fetch,
     parse,
-    to_table,
 )
+from extract.table import to_table
 
 START_DATE = "2024-01-15"
 END_DATE = "2024-01-15"

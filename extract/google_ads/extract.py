@@ -7,6 +7,8 @@ from google.ads.googleads.client import GoogleAdsClient
 from google.protobuf.json_format import MessageToDict
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from extract.table import to_table
+
 
 class Raw(BaseModel):
     """Mirrors the Google Ads API protobuf response for a performance row."""
@@ -108,37 +110,15 @@ def fetch(
     """Fetches raw data from the Google Ads API."""
     service = client.get_service("GoogleAdsService")
     response = service.search(customer_id=customer_id, query=query)
-    raw_rows = [
-        _to_raw(_flatten_row(MessageToDict(row._pb)), customer_id) for row in response
-    ]
+    raw_rows = []
+    for row in response:
+        row_dict = MessageToDict(row._pb)
+        flattened = _flatten_row(row_dict)
+        raw = _to_raw(flattened, customer_id)
+        raw_rows.append(raw)
     return raw_rows
 
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Google Ads row into a typed Record."""
-    record = Record(
-        date=raw.date,
-        clicks=raw.clicks,
-        impressions=raw.impressions,
-        cost_micros=raw.cost_micros,
-        conversions=raw.conversions,
-        customer_id=raw.customer_id,
-    )
-    return record
-
-
-def to_table(records: list[Record]) -> pa.Table:
-    """Converts a list of Records into a PyArrow table."""
-    rows = [
-        {
-            "date": record.date.isoformat(),
-            "clicks": record.clicks,
-            "impressions": record.impressions,
-            "cost_micros": record.cost_micros,
-            "conversions": record.conversions,
-            "customer_id": record.customer_id,
-        }
-        for record in records
-    ]
-    table = pa.Table.from_pylist(rows)
-    return table
+    return Record(**raw.model_dump())

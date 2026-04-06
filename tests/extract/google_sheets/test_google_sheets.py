@@ -6,7 +6,13 @@ import pyarrow as pa
 import pytest
 from pydantic import ValidationError
 
-from extract.google_sheets.extract import Raw, Record, extract, fetch, parse, to_table
+from extract.google_sheets.extract import Raw, Record, extract, fetch, parse
+
+
+def to_table(records: list[Record]) -> pa.Table:
+    """Replicates the old to_table for test assertions."""
+    return pa.Table.from_pylist([record.data for record in records])
+
 
 SPREADSHEET_ID = "test-spreadsheet-id"
 SHEET_NAME = "Sheet1"

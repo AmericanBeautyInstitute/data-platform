@@ -15,8 +15,8 @@ from extract.google_ads.extract import (
     extract,
     fetch,
     parse,
-    to_table,
 )
+from extract.table import to_table
 
 CUSTOMER_ID = "1234567890"
 QUERY = "SELECT segments.date, metrics.clicks FROM customer"

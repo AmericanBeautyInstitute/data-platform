@@ -48,7 +48,10 @@ class Record(BaseModel):
         """Parses date string in YYYYMMDD format from GA4 API."""
         if isinstance(v, date):
             return v
-        return date(int(v[:4]), int(v[4:6]), int(v[6:]))
+        year = int(v[:4])
+        month = int(v[4:6])
+        day = int(v[6:])
+        return date(year, month, day)
 
 
 def extract(
