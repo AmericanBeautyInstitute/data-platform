@@ -7,11 +7,14 @@ import pytest
 from dagster import DailyPartitionsDefinition, materialize
 
 from assets.ingestion.resources import (
+    IngestionConfig,
     StripeResource,
     bigquery_resource,
     gcs_resource,
 )
 from assets.ingestion.stripe import TABLE, stripe_charges_raw
+
+ingestion_config = IngestionConfig(project="fake-project", bucket="my-bucket")
 
 PARTITION_KEY = "2024-01-15"
 FAKE_GCS_URI = (
@@ -91,6 +94,7 @@ def test_materialize_succeeds(env_vars, stripe_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "stripe": stripe_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -119,6 +123,7 @@ def test_materialize_passes_date_range_to_extract(env_vars, stripe_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "stripe": stripe_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -151,6 +156,7 @@ def test_materialize_gcs_source_is_table_name(env_vars, stripe_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "stripe": stripe_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -180,6 +186,7 @@ def test_materialize_output_metadata_keys(env_vars, stripe_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "stripe": stripe_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 

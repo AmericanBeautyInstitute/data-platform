@@ -9,9 +9,12 @@ from dagster import DailyPartitionsDefinition, materialize
 from assets.ingestion.google_ads import QUERY, TABLE, google_ads_raw
 from assets.ingestion.resources import (
     GoogleAdsResource,
+    IngestionConfig,
     bigquery_resource,
     gcs_resource,
 )
+
+ingestion_config = IngestionConfig(project="fake-project", bucket="my-bucket")
 
 PARTITION_KEY = "2024-01-15"
 FAKE_GCS_URI = "gs://my-bucket/google_ads/date=2024-01-15/google_ads-run-id.parquet"
@@ -94,6 +97,7 @@ def test_materialize_succeeds(env_vars, google_ads_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_ads": google_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -124,6 +128,7 @@ def test_materialize_passes_formatted_query_to_extract(env_vars, google_ads_reso
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_ads": google_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -156,6 +161,7 @@ def test_materialize_passes_customer_id_to_extract(env_vars, google_ads_resource
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_ads": google_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -188,6 +194,7 @@ def test_materialize_gcs_source_is_table_name(env_vars, google_ads_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_ads": google_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -219,6 +226,7 @@ def test_materialize_output_metadata_keys(env_vars, google_ads_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_ads": google_ads_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 

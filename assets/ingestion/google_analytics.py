@@ -1,13 +1,12 @@
 """Google Analytics ingestion asset."""
 
-import os
 import uuid
 from datetime import datetime
 
 from dagster import AssetExecutionContext, asset
 from dagster_gcp import BigQueryResource, GCSResource
 
-from assets.ingestion.resources import GoogleAnalyticsResource
+from assets.ingestion.resources import GoogleAnalyticsResource, IngestionConfig
 from assets.ingestion.schedules import daily_partitions
 from extract.google_analytics import extract as ga_extract
 from extract.google_analytics.extract import ReportConfig
@@ -33,13 +32,12 @@ def google_analytics_raw(
     gcs: GCSResource,
     bigquery: BigQueryResource,
     google_analytics: GoogleAnalyticsResource,
+    ingestion_env: IngestionConfig,
 ) -> None:
     """Extracts Google Analytics data and loads it into GCS and BigQuery."""
     partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
     run_id = str(uuid.uuid4())
     date_str = partition_date.isoformat()
-    project = os.environ["GCP_PROJECT_ID"]
-    bucket = os.environ["GCS_BUCKET"]
 
     client = google_analytics.get_client()
     table = ga_extract.extract(
@@ -51,7 +49,7 @@ def google_analytics_raw(
     )
 
     gcs_config = GCSConfig(
-        bucket=bucket,
+        bucket=ingestion_env.bucket,
         source=TABLE,
         partition_date=partition_date,
         run_id=run_id,
@@ -59,7 +57,7 @@ def google_analytics_raw(
     gcs_uri = gcs_load.load(table, gcs_config, gcs.get_client())
 
     bq_config = BigQueryConfig(
-        project=project,
+        project=ingestion_env.project,
         dataset=DATASET,
         table=TABLE,
         partition_date=partition_date,

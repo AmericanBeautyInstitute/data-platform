@@ -9,9 +9,12 @@ from dagster import DailyPartitionsDefinition, materialize
 from assets.ingestion.google_analytics import REPORT_CONFIG, TABLE, google_analytics_raw
 from assets.ingestion.resources import (
     GoogleAnalyticsResource,
+    IngestionConfig,
     bigquery_resource,
     gcs_resource,
 )
+
+ingestion_config = IngestionConfig(project="fake-project", bucket="my-bucket")
 
 PARTITION_KEY = "2024-01-15"
 FAKE_GCS_URI = (
@@ -104,6 +107,7 @@ def test_materialize_succeeds(env_vars, google_analytics_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -137,6 +141,7 @@ def test_materialize_passes_date_range_to_extract(env_vars, google_analytics_res
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -172,6 +177,7 @@ def test_materialize_passes_property_id_to_extract(env_vars, google_analytics_re
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -206,6 +212,7 @@ def test_materialize_gcs_source_is_table_name(env_vars, google_analytics_resourc
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 
@@ -241,6 +248,7 @@ def test_materialize_output_metadata_keys(env_vars, google_analytics_resource):
                 "gcs": gcs_resource,
                 "bigquery": bigquery_resource,
                 "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
             },
         )
 

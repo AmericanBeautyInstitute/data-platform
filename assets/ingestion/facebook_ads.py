@@ -1,13 +1,12 @@
 """Facebook Ads ingestion asset."""
 
-import os
 import uuid
 from datetime import datetime
 
 from dagster import AssetExecutionContext, asset
 from dagster_gcp import BigQueryResource, GCSResource
 
-from assets.ingestion.resources import FacebookAdsResource
+from assets.ingestion.resources import FacebookAdsResource, IngestionConfig
 from assets.ingestion.schedules import daily_partitions
 from extract.facebook_ads import extract as fb_extract
 from load.bigquery import load as bq_load
@@ -28,19 +27,18 @@ def facebook_ads_raw(
     gcs: GCSResource,
     bigquery: BigQueryResource,
     facebook_ads: FacebookAdsResource,
+    ingestion_env: IngestionConfig,
 ) -> None:
     """Extracts Facebook Ads campaign insights and loads into GCS and BigQuery."""
     partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
     run_id = str(uuid.uuid4())
     date_str = partition_date.isoformat()
-    project = os.environ["GCP_PROJECT_ID"]
-    bucket = os.environ["GCS_BUCKET"]
 
     client = facebook_ads.get_client()
     table = fb_extract.extract(client, date_str, date_str)
 
     gcs_config = GCSConfig(
-        bucket=bucket,
+        bucket=ingestion_env.bucket,
         source=TABLE,
         partition_date=partition_date,
         run_id=run_id,
@@ -48,7 +46,7 @@ def facebook_ads_raw(
     gcs_uri = gcs_load.load(table, gcs_config, gcs.get_client())
 
     bq_config = BigQueryConfig(
-        project=project,
+        project=ingestion_env.project,
         dataset=DATASET,
         table=TABLE,
         partition_date=partition_date,
