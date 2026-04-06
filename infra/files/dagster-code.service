@@ -1,8 +1,7 @@
 [Unit]
-Description=Dagster Daemon
-After=network-online.target dagster-code.service
+Description=Dagster gRPC Code Server
+After=network-online.target
 Wants=network-online.target
-Requires=dagster-code.service
 
 [Service]
 Type=simple
@@ -10,7 +9,7 @@ User=dagster
 Group=dagster
 WorkingDirectory=/home/dagster/data-platform
 EnvironmentFile=/home/dagster/data-platform/.env
-ExecStart=/home/dagster/.local/bin/uv run dagster-daemon run
+ExecStart=/home/dagster/.local/bin/uv run dagster api grpc --host 127.0.0.1 --port 4266 --module-name assets.definitions
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
