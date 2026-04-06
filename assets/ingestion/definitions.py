@@ -2,12 +2,15 @@
 
 from dagster import Definitions
 
+from assets.ingestion.google_ads import google_ads_raw
+from assets.ingestion.google_analytics import google_analytics_raw
+from assets.ingestion.google_sheets import google_sheets_assets
 from assets.ingestion.jobs import ingestion_job
 from assets.ingestion.resources import bigquery_resource, gcs_resource
 from assets.ingestion.schedules import daily_schedule
 
 ingestion_defs = Definitions(
-    assets=[],
+    assets=[google_ads_raw, google_analytics_raw, *google_sheets_assets],
     jobs=[ingestion_job],
     schedules=[daily_schedule],
     resources={
