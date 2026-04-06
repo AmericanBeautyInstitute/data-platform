@@ -3,15 +3,9 @@
 from dagster import EnvVar
 from dagster_sqlmesh import SQLMeshContextConfig, SQLMeshResource
 
+sqlmesh_config = SQLMeshContextConfig(
+    path=EnvVar("SQLMESH_PROJECT_DIR"),
+    gateway=EnvVar("SQLMESH_GATEWAY"),
+)
 
-def _build_sqlmesh_resource() -> SQLMeshResource:
-    """Builds a SQLMeshResource from environment variables."""
-    return SQLMeshResource(
-        config=SQLMeshContextConfig(
-            path=EnvVar("SQLMESH_PROJECT_DIR").get_value(),
-            gateway=EnvVar("SQLMESH_GATEWAY").get_value(),
-        )
-    )
-
-
-sqlmesh_resource = _build_sqlmesh_resource()
+sqlmesh_resource = SQLMeshResource(config=sqlmesh_config)
