@@ -19,6 +19,7 @@ The pipeline currently ingests data from the following sources:
 - **Google Sheets**
 - **Facebook Ads**
 - **PayPal**
+- **Stripe**
 
 ### **Extract**
 
@@ -26,29 +27,29 @@ Data are extracted programmatically using custom [Extractor](../api/extractor.md
 
 ### **Load**
 
-Extracted data are loaded using custom [Loader](../api/loader.md) Python modules to Google Cloud Storage which serve as both the landing zone and the data lake. Files are organized by source and timestamp, converted to Parquet format, then stored.
+Extracted data are loaded using custom [Loader](../api/loader.md) Python modules to Google Cloud Storage which serve as both the landing zone and the data lake. Files are organized by source and date partition, converted to Parquet format, then stored.
 
 ### **Data Warehouse**
 
-**BigQuery** serves as the platform's data warehouse. Tables are sourced directly from Google Cloud Storage, organized into raw, staging, and mart datasets.
+**BigQuery** serves as the platform's data warehouse. Tables are organized into three datasets: `raw`, `staging`, and `marts`.
 
 ### **Transform**
 
-Data transformations are performed in BigQuery using **dbt**. The resulting data marts are the basis for every data app and services served on the platform.
+Data transformations are performed in BigQuery using **SQLMesh**. Staging models clean and type-cast raw data. Mart models answer business questions around enrollment, inventory, ad attribution, and revenue.
 
 ### **Analytics**
 
-Users and analyze data and access insights through:
+Users analyze data and access insights through:
 
 - **Looker Studio**
 - **Streamlit**
 
 ### **Orchestration**
 
-**Prefect** orchestrates the entire end-to-end data pipeline daily. It is self-hosted and is managed internally by the engineering team.
+**Dagster** orchestrates the entire end-to-end data pipeline daily. It is self-hosted on a GCP `e2-micro` VM and managed via systemd. The Dagster daemon runs without a webserver — all interactions are via CLI.
 
-### **Containerization & Deployment**
+### **Deployment**
 
-**Docker** containerizes all self-hosted components (e.g., Prefect, Streamlit) and deployed to Google Cloud Run.
+**Terraform** provisions all GCP infrastructure including the VM, GCS buckets, IAM bindings, and IAP firewall rules.
 
-**GitHub Actions** is used for the CI/CD orchestration, automating the build and deployment process of the platform.
+**GitHub Actions** runs CI on every push and pull request, executing the full test suite across Python 3.11 and 3.12 on Ubuntu and macOS.
