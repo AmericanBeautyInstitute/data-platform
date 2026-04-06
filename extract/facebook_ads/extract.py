@@ -1,0 +1,156 @@
+"""Facebook Ads data extractor."""
+
+from datetime import date
+
+import pyarrow as pa
+from facebook_business.adobjects.adaccount import AdAccount
+from facebook_business.adobjects.adsinsights import AdsInsights
+from pydantic import BaseModel, ConfigDict, field_validator
+
+INSIGHT_FIELDS = [
+    AdsInsights.Field.date_start,
+    AdsInsights.Field.campaign_id,
+    AdsInsights.Field.campaign_name,
+    AdsInsights.Field.impressions,
+    AdsInsights.Field.clicks,
+    AdsInsights.Field.spend,
+    AdsInsights.Field.reach,
+    AdsInsights.Field.frequency,
+    AdsInsights.Field.actions,
+]
+
+
+class Raw(BaseModel):
+    """Mirrors a single row from the Facebook Ads Insights API response."""
+
+    model_config = ConfigDict(frozen=True)
+
+    date_start: str
+    campaign_id: str
+    campaign_name: str
+    impressions: str
+    clicks: str
+    spend: str
+    reach: str
+    frequency: str
+    actions: list[dict]
+
+
+class Record(BaseModel):
+    """A validated, typed Facebook Ads campaign insights record."""
+
+    model_config = ConfigDict(frozen=True)
+
+    date: date
+    campaign_id: str
+    campaign_name: str
+    impressions: int
+    clicks: int
+    spend_usd: float
+    reach: int
+    frequency: float
+    link_clicks: int
+    leads: int
+    conversions: int
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def parse_date(cls, v: str | date) -> date:
+        """Parses ISO date string from Facebook Ads API."""
+        if isinstance(v, date):
+            return v
+        return date.fromisoformat(v)
+
+    @field_validator("impressions", "clicks", "reach", mode="before")
+    @classmethod
+    def parse_int(cls, v: str | int) -> int:
+        """Parses string integer fields from Facebook Ads API."""
+        return int(v)
+
+    @field_validator("spend_usd", "frequency", mode="before")
+    @classmethod
+    def parse_float(cls, v: str | float) -> float:
+        """Parses string float fields from Facebook Ads API."""
+        return float(v)
+
+
+def extract(client: AdAccount, start_date: str, end_date: str) -> pa.Table:
+    """Extracts Facebook Ads campaign insights into a PyArrow table."""
+    raw_rows = fetch(client, start_date, end_date)
+    records = [parse(r) for r in raw_rows]
+    table = to_table(records)
+    return table
+
+
+def _extract_action(actions: list[dict], action_type: str) -> int:
+    """Extracts the value for a specific action type from actions list."""
+    for action in actions:
+        if action.get("action_type") == action_type:
+            return int(float(action.get("value", 0)))
+    return 0
+
+
+def _to_raw(row: dict) -> Raw:
+    """Converts a Facebook Ads API row dict into a Raw instance."""
+    return Raw(
+        date_start=row.get("date_start", ""),
+        campaign_id=row.get("campaign_id", ""),
+        campaign_name=row.get("campaign_name", ""),
+        impressions=row.get("impressions", "0"),
+        clicks=row.get("clicks", "0"),
+        spend=row.get("spend", "0"),
+        reach=row.get("reach", "0"),
+        frequency=row.get("frequency", "0"),
+        actions=row.get("actions", []),
+    )
+
+
+def fetch(client: AdAccount, start_date: str, end_date: str) -> list[Raw]:
+    """Fetches raw campaign insights from the Facebook Ads API."""
+    params = {
+        "level": "campaign",
+        "time_range": {"since": start_date, "until": end_date},
+        "time_increment": 1,
+    }
+    insights = client.get_insights(fields=INSIGHT_FIELDS, params=params)
+    return [_to_raw(dict(row)) for row in insights]
+
+
+def parse(raw: Raw) -> Record:
+    """Converts a Raw Facebook Ads row into a typed Record."""
+    return Record(
+        date=raw.date_start,
+        campaign_id=raw.campaign_id,
+        campaign_name=raw.campaign_name,
+        impressions=raw.impressions,
+        clicks=raw.clicks,
+        spend_usd=raw.spend,
+        reach=raw.reach,
+        frequency=raw.frequency,
+        link_clicks=_extract_action(raw.actions, "link_click"),
+        leads=_extract_action(raw.actions, "lead"),
+        conversions=_extract_action(
+            raw.actions, "offsite_conversion.fb_pixel_purchase"
+        ),
+    )
+
+
+def to_table(records: list[Record]) -> pa.Table:
+    """Converts a list of Records into a PyArrow table."""
+    rows = [
+        {
+            "date": record.date.isoformat(),
+            "campaign_id": record.campaign_id,
+            "campaign_name": record.campaign_name,
+            "impressions": record.impressions,
+            "clicks": record.clicks,
+            "spend_usd": record.spend_usd,
+            "reach": record.reach,
+            "frequency": record.frequency,
+            "link_clicks": record.link_clicks,
+            "leads": record.leads,
+            "conversions": record.conversions,
+        }
+        for record in records
+    ]
+    return pa.Table.from_pylist(rows)

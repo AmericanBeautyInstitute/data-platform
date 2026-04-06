@@ -11,6 +11,7 @@ dependencies = [
     "dagster>=1.12.22",
     "dagster-gcp>=0.28.22",
     "dagster-sqlmesh>=0.22.0",
+    "facebook-business>=25.0.1",
     "google-ads>=28.2.0",
     "google-analytics-data>=0.19.0",
     "google-api-python-client>=2.185.0",
