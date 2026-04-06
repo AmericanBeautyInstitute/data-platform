@@ -34,15 +34,30 @@ test:
 type_check:
 	uv run ty check tests
 
+ssh:
+	gcloud compute ssh dagster-daemon \
+		--zone=us-east1-b \
+		--tunnel-through-iap \
+		--project=american-beauty-institute
+
+deploy:
+	gcloud compute ssh dagster-daemon \
+		--zone=us-east1-b \
+		--tunnel-through-iap \
+		--project=american-beauty-institute \
+		--command="cd /opt/data-platform && git pull && systemctl restart dagster"
+
 ################################################################################
 
 .PHONY: \
 	build \
+	deploy \
 	docs \
 	help \
 	lint \
 	reformat \
 	serve \
 	setup \
+	ssh \
 	test \
 	type_check
