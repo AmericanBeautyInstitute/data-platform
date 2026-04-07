@@ -1,1 +1,1 @@
-American Beauty Institute is a school specializing in training individuals in the field of cosmetology. This is where all the documentations for applications built by the Engineering team resides.
+American Beauty Institute is a cosmetology school. This site hosts documentation for applications built by the Engineering team.
