@@ -31,6 +31,17 @@ nav:
         - Data Sources: data-platform/data-ingestion/data-sources.md
         - Extractors: data-platform/data-ingestion/extractors.md
         - Authentication: data-platform/data-ingestion/authentication.md
+      - Data Transformation:
+        - data-platform/transformation/index.md
+        - Staging Models: data-platform/transformation/staging.md
+        - Mart Models: data-platform/transformation/marts.md
+        - Audits & Linting: data-platform/transformation/audits.md
+      - Infrastructure: data-platform/infrastructure/index.md
+      - Deployment: data-platform/deployment/index.md
+      - Operations: data-platform/operations/index.md
+      - Secret Management: data-platform/secret-management/index.md
+      - CI/CD: data-platform/ci-cd/index.md
+      - Development Setup: data-platform/development/index.md
 
 copyright: © American Beauty Institute 2025
 
