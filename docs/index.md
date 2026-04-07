@@ -19,11 +19,12 @@ hide:
 
 ---
 
-This is the official documentation for all products built by the American Beauty Institute Engineering team.
+Documentation for products built by the American Beauty Institute Engineering team.
 
 ---
 
 ## [Data Platform](data-platform/index.md)
 
-#### 1. [Architecture](data-platform/architecture/index.md)
-#### 2. [Data Ingestion](data-platform/data-ingestion/index.md)
+1. [Architecture](data-platform/architecture/index.md)
+2. [Data Ingestion](data-platform/data-ingestion/index.md)
+3. [API Reference](data-platform/api/extractor.md)

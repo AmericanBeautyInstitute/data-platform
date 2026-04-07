@@ -2,13 +2,16 @@
 title: Authentication
 ---
 
-Each data source uses a different authentication mechanism. All credentials are stored as environment variables and never committed to the repository.
+Each data source authenticates differently, but all credentials follow the same two-tier pattern:
 
-In production, credentials are stored in GCP Secret Manager and accessed at runtime. Locally, credentials are loaded from a `.env` file which is gitignored.
+- **Production** — the VM startup script pulls secrets from GCP Secret Manager and writes them to a `.env` file at `/home/dagster/data-platform/.env`.
+- **Local development** — you create the `.env` file manually. It is gitignored.
+
+Dagster resources read these values through `EnvVar` bindings, so asset code never accesses environment variables directly.
 
 ## Google Sheets, Google Analytics, Google Ads
 
-These three sources authenticate using a GCP service account JSON key file. The path to the key file is provided via environment variable.
+These three sources authenticate with a GCP service account JSON key file. In production, the key lives at `/etc/gcp/service-account.json` on the VM.
 
 | Variable | Description |
 |---|---|
@@ -16,21 +19,21 @@ These three sources authenticate using a GCP service account JSON key file. The 
 | `GOOGLE_SHEETS_SPREADSHEET_ID` | Target spreadsheet ID |
 | `GOOGLE_ANALYTICS_CREDENTIALS_PATH` | Path to service account JSON |
 | `GOOGLE_ANALYTICS_PROPERTY_ID` | GA4 property ID |
-| `GOOGLE_ADS_CREDENTIALS_PATH` | Path to Google Ads YAML credentials |
+| `GOOGLE_ADS_CREDENTIALS_PATH` | Path to service account JSON |
 | `GOOGLE_ADS_CUSTOMER_ID` | Google Ads customer ID |
 
 ## Facebook Ads
 
-Facebook Ads authenticates using a System User access token generated from Meta Business Manager. No browser login or OAuth flow is required at runtime.
+Authenticates with a System User access token from Meta Business Manager. No browser login or OAuth flow runs at runtime.
 
 | Variable | Description |
 |---|---|
 | `FACEBOOK_ADS_ACCESS_TOKEN` | System user long-lived access token |
-| `FACEBOOK_ADS_ACCOUNT_ID` | Ad account ID in `act_XXXXXXXXX` format |
+| `FACEBOOK_ADS_ACCOUNT_ID` | Ad account ID (`act_XXXXXXXXX` format) |
 
 ## PayPal
 
-PayPal authenticates using OAuth 2.0 client credentials. The client exchanges `client_id` and `client_secret` for a short-lived access token automatically on each run.
+Authenticates with OAuth 2.0 client credentials. The client exchanges its ID and secret for a short-lived access token on each run.
 
 | Variable | Description |
 |---|---|
@@ -39,7 +42,7 @@ PayPal authenticates using OAuth 2.0 client credentials. The client exchanges `c
 
 ## Stripe
 
-Stripe authenticates using a secret key. No token exchange is required — the key is passed directly to the Stripe SDK.
+Authenticates with a secret key passed directly to the Stripe SDK. No token exchange required.
 
 | Variable | Description |
 |---|---|
@@ -47,10 +50,10 @@ Stripe authenticates using a secret key. No token exchange is required — the k
 
 ## GCP Infrastructure
 
-The Dagster assets themselves use two additional environment variables for GCP infrastructure access.
+The `IngestionConfig` Dagster resource provides GCP project and bucket values to all ingestion assets. These are bound to environment variables at resource definition time, not inside asset code.
 
 | Variable | Description |
 |---|---|
-| `GCP_PROJECT_ID` | GCP project ID |
-| `GCS_BUCKET` | GCS bucket name for raw Parquet files |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Path to GCP service account JSON for BigQuery and GCS |
+| `GCP_PROJECT_ID` | GCP project ID (used by `IngestionConfig`, GCS, and BigQuery resources) |
+| `GCS_BUCKET` | GCS bucket for raw Parquet files (used by `IngestionConfig`) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON for BigQuery and GCS |
