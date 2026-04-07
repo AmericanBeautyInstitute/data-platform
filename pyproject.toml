@@ -6,7 +6,7 @@ authors = [
     {name = "Kim, Andrew", email = "andrewkimka@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "dagster>=1.12.22",
     "dagster-gcp>=0.28.22",
