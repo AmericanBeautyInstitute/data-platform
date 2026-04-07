@@ -2,64 +2,7 @@
 title: Data Platform Architecture
 ---
 
-```mermaid
-graph LR
-    subgraph Sources["Data Sources"]
-        GA[Google Ads]
-        GAN[Google Analytics]
-        GS[Google Sheets]
-        FA[Facebook Ads]
-        PP[PayPal]
-        ST[Stripe]
-    end
-
-    subgraph VM["GCP Compute Engine (e2-micro)"]
-        subgraph Dagster["Dagster"]
-            EX[Extract<br/>Python SDKs → PyArrow]
-            LD[Load<br/>Parquet → GCS]
-            TR[Transform<br/>SQLMesh]
-            EX --> LD --> TR
-        end
-    end
-
-    Sources --> EX
-
-    subgraph GCP["Google Cloud Platform"]
-        SM[Secret Manager]
-        GCS[Cloud Storage<br/>Raw Parquet Files]
-        subgraph BQ["BigQuery"]
-            RAW[raw]
-            STG[staging]
-            MARTS[marts]
-            RAW --> STG --> MARTS
-        end
-    end
-
-    SM -.->|credentials| VM
-    LD --> GCS
-    GCS --> RAW
-    TR --> STG
-    TR --> MARTS
-
-    subgraph Analytics
-        LS[Looker Studio]
-        SL[Streamlit]
-    end
-
-    MARTS --> LS
-    MARTS --> SL
-
-    subgraph CI["GitHub Actions"]
-        TEST[CI Pipeline<br/>lint · type check · test]
-    end
-
-    subgraph Infra["Infrastructure"]
-        TF[Terraform]
-    end
-
-    TF -.->|provisions| GCP
-    TF -.->|provisions| VM
-```
+![architecture](../../assets/architecture.svg)
 
 ## Overview
 
@@ -96,7 +39,7 @@ SQLMesh runs transformations inside BigQuery. Staging models clean and type-cast
 
 ### Analytics
 
-Users access insights through Looker Studio and Streamlit.
+Users access insights through Looker Studio.
 
 ### Orchestration
 
