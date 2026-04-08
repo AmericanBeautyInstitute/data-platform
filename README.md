@@ -21,3 +21,15 @@
 ---
 
 Repository for all data related code for American Beauty Institute.
+
+# Development environment setup
+
+It is recommended to use this project's [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers) setup which handles all the configurations and installations needed to run the platform. Install the Dev Container VSCode extension and run `Dev Containers: Open Folder in Container...` under the command palette.
+
+Alternatively, [uv](https://docs.astral.sh/uv/getting-started/installation/) can be used directly without the Dev Container, though [Terraform](https://developer.hashicorp.com/terraform/install) and [Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk) will need to be installed separately for deployment and infrastructural tasks.
+
+```bash
+git clone https://github.com/AmericanBeautyInstitute/data-platform.git
+cd data-platform
+make setup
+```
