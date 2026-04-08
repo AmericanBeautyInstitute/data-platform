@@ -1,9 +1,8 @@
-FROM mcr.microsoft.com/devcontainers/base:jammy
-
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ARG VARIANT=3.13-trixie
+FROM mcr.microsoft.com/devcontainers/python:${VARIANT}
 
 RUN apt-get update \
-    && apt-get install -y gnupg software-properties-common curl \
+    && apt-get install -y gnupg curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,3 +25,6 @@ RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
     && apt-get install -y google-cloud-cli \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
