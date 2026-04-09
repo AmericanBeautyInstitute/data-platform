@@ -403,7 +403,7 @@ def test_record_invalid_timestamp_raises():
     with pytest.raises(ValidationError):
         Record(
             charge_id=CHARGE_ID,
-            charge_date="not-a-date",  # type: ignore[arg-type]
+            charge_date="not-a-date",  # ty: ignore[invalid-argument-type]
             gross_amount_usd=EXPECTED_GROSS,
             amount_captured_usd=EXPECTED_GROSS,
             fee_usd=EXPECTED_FEE,

@@ -345,7 +345,7 @@ def test_record_invalid_date_raises():
     """Invalid date string raises ValidationError."""
     with pytest.raises(ValidationError):
         Record(
-            date="not-a-date",  # type: ignore[arg-type]
+            date="not-a-date",  # ty: ignore[invalid-argument-type]
             campaign_id=CAMPAIGN_ID,
             campaign_name=CAMPAIGN_NAME,
             impressions=EXPECTED_IMPRESSIONS,
