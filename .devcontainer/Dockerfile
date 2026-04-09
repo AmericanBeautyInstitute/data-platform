@@ -15,7 +15,8 @@ RUN \
         > /etc/apt/sources.list.d/google-cloud.sdk.list \
     # Install Terraform and Google Cloud CLI
     && apt-get update \
-    && apt-get install -y terraform google-cloud-cli \
+    && apt-get install -y bash-completion google-cloud-cli terraform \
+    && echo 'source /usr/share/bash-completion/bash_completion' >> /root/.bashrc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
