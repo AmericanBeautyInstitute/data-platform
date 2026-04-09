@@ -34,7 +34,7 @@ dev = [
     "pytest-cov>=6.2.1",
     "pytest-mock>=3.14.1",
     "ruff>=0.12.0",
-    "ty>=0.0.1a24",
+    "ty>=0.0.29",
 ]
 docs = [
     "mkdocs-material>=9.6.22",

@@ -304,7 +304,7 @@ def test_record_date_validator_accepts_date_object():
 def test_record_date_validator_parses_yyyymmdd_string():
     """Date validator correctly parses YYYYMMDD string."""
     record = Record(
-        date="20240115",  # type: ignore[arg-type]
+        date="20240115",  # ty: ignore[invalid-argument-type]
         dimensions={"date": "20240115", "country": "Japan"},
         metrics={"sessions": "100", "pageviews": "500"},
     )

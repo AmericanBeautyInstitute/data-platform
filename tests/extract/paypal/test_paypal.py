@@ -351,7 +351,7 @@ def test_record_invalid_date_raises():
     with pytest.raises(ValidationError):
         Record(
             transaction_id=TRANSACTION_ID,
-            transaction_date="not-a-date",  # type: ignore[arg-type]
+            transaction_date="not-a-date",  # ty: ignore[invalid-argument-type]
             gross_amount_usd=EXPECTED_GROSS,
             currency_code="USD",
             transaction_status=EXPECTED_STATUS,
