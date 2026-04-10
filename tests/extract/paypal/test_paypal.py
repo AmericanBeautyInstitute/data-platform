@@ -17,8 +17,9 @@ from extract.paypal.extract import (
 )
 from extract.table import to_table
 
-START_DATE = "2024-01-15"
-END_DATE = "2024-01-15"
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
+START_DATE_STR = "2024-01-15"
 TRANSACTION_ID = "TXN123456"
 EXPECTED_ROW_COUNT = 2
 EXPECTED_COLUMN_COUNT = 10
@@ -184,8 +185,8 @@ def test_fetch_calls_api_with_correct_date_range(mock_client):
     """API called with correct start and end date params."""
     fetch(mock_client, START_DATE, END_DATE)
     call_params = mock_client.get.call_args[1]["params"]
-    assert START_DATE in call_params["start_date"]
-    assert END_DATE in call_params["end_date"]
+    assert START_DATE_STR in call_params["start_date"]
+    assert START_DATE_STR in call_params["end_date"]
 
 
 def test_fetch_paginates_multiple_pages():

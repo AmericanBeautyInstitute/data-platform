@@ -57,8 +57,8 @@ class Record(BaseModel):
 def extract(
     client: BetaAnalyticsDataClient,
     property_id: str,
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     config: ReportConfig,
 ) -> pa.Table:
     """Extracts Google Analytics data into a PyArrow table."""
@@ -71,8 +71,8 @@ def extract(
 def fetch(
     client: BetaAnalyticsDataClient,
     property_id: str,
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     config: ReportConfig,
 ) -> list[Raw]:
     """Fetches raw data from the GA4 API."""
@@ -84,14 +84,19 @@ def fetch(
 
 def _build_request(
     property_id: str,
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     config: ReportConfig,
 ) -> RunReportRequest:
     """Builds a GA4 RunReportRequest."""
     request = RunReportRequest(
         property=f"properties/{property_id}",
-        date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
+        date_ranges=[
+            DateRange(
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+            )
+        ],
         dimensions=[Dimension(name=d) for d in config.dimension_names],
         metrics=[Metric(name=m) for m in config.metric_names],
     )

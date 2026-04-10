@@ -84,7 +84,7 @@ class Record(BaseModel):
         return dollars
 
 
-def extract(client: StripeClient, start_date: str, end_date: str) -> pa.Table:
+def extract(client: StripeClient, start_date: date, end_date: date) -> pa.Table:
     """Extracts Stripe charges into a PyArrow table."""
     raw_rows = fetch(client, start_date, end_date)
     records = [parse(r) for r in raw_rows]
@@ -92,13 +92,12 @@ def extract(client: StripeClient, start_date: str, end_date: str) -> pa.Table:
     return table
 
 
-def _date_to_timestamp(date_str: str, end_of_day: bool = False) -> int:
-    """Converts an ISO date string to a UTC Unix timestamp."""
-    dt = datetime.fromisoformat(date_str)
+def _date_to_timestamp(d: date, end_of_day: bool = False) -> int:
+    """Converts a date to a UTC Unix timestamp."""
+    dt = datetime(d.year, d.month, d.day, tzinfo=UTC)
     if end_of_day:
         dt = dt.replace(hour=23, minute=59, second=59)
-    utc_dt = dt.replace(tzinfo=UTC)
-    timestamp = int(utc_dt.timestamp())
+    timestamp = int(dt.timestamp())
     return timestamp
 
 
@@ -124,7 +123,7 @@ def _to_raw(charge: dict) -> Raw:
     )
 
 
-def fetch(client: StripeClient, start_date: str, end_date: str) -> list[Raw]:
+def fetch(client: StripeClient, start_date: date, end_date: date) -> list[Raw]:
     """Fetches all charges for the given date range from Stripe API."""
     raw_rows: list[Raw] = []
     start_ts = _date_to_timestamp(start_date)
