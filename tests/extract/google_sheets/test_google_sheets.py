@@ -80,10 +80,10 @@ def test_fetch_calls_api_with_correct_args(mock_client):
 
 
 def test_fetch_empty_sheet_raises(mock_client):
-    """Empty sheet response raises IndexError on header extraction."""
+    """Empty sheet raises ValueError with spreadsheet and sheet context."""
     mock_client.spreadsheets().values().get().execute.return_value = {"values": []}
 
-    with pytest.raises(IndexError):
+    with pytest.raises(ValueError, match=SHEET_NAME):
         fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
 
 
