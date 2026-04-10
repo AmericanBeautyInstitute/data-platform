@@ -37,6 +37,10 @@ def stripe_charges_raw(
     client = stripe.get_client()
     table = stripe_extract.extract(client, date_str, date_str)
 
+    if table.num_rows == 0:
+        context.log.warning(f"Zero rows extracted for {partition_date}")
+        return
+
     gcs_config = GCSConfig(
         bucket=ingestion_env.bucket,
         source=TABLE,
