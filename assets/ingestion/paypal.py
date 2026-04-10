@@ -35,7 +35,7 @@ def paypal_transactions_raw(
     date_str = partition_date.isoformat()
 
     client = paypal.get_client()
-    table = paypal_extract.extract(client, date_str, date_str)
+    table = paypal_extract.extract(client, partition_date, partition_date)
 
     gcs_config = GCSConfig(
         bucket=ingestion_env.bucket,

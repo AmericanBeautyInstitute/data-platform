@@ -85,7 +85,7 @@ class Record(BaseModel):
         return float(v)
 
 
-def extract(client: AdAccount, start_date: str, end_date: str) -> pa.Table:
+def extract(client: AdAccount, start_date: date, end_date: date) -> pa.Table:
     """Extracts Facebook Ads campaign insights into a PyArrow table."""
     raw_rows = fetch(client, start_date, end_date)
     records = [parse(r) for r in raw_rows]
@@ -108,11 +108,14 @@ def _to_raw(row: dict) -> Raw:
     )
 
 
-def fetch(client: AdAccount, start_date: str, end_date: str) -> list[Raw]:
+def fetch(client: AdAccount, start_date: date, end_date: date) -> list[Raw]:
     """Fetches raw campaign insights from the Facebook Ads API."""
     params = {
         "level": "campaign",
-        "time_range": {"since": start_date, "until": end_date},
+        "time_range": {
+            "since": start_date.isoformat(),
+            "until": end_date.isoformat(),
+        },
         "time_increment": 1,
     }
     insights = client.get_insights(fields=INSIGHT_FIELDS, params=params)

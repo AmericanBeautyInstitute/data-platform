@@ -18,8 +18,9 @@ from extract.facebook_ads.extract import (
 )
 from extract.table import to_table
 
-START_DATE = "2024-01-15"
-END_DATE = "2024-01-15"
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
+START_DATE_STR = "2024-01-15"
 CAMPAIGN_ID = "123456789"
 CAMPAIGN_NAME = "ABI Spring Enrollment"
 EXPECTED_ROW_COUNT = 2
@@ -46,7 +47,7 @@ SAMPLE_ACTIONS_DICTS = [
 ]
 
 RAW_ROW_1 = Raw(
-    date_start=START_DATE,
+    date_start=START_DATE_STR,
     campaign_id=CAMPAIGN_ID,
     campaign_name=CAMPAIGN_NAME,
     impressions="1000",
@@ -70,7 +71,7 @@ RAW_ROW_2 = Raw(
 )
 
 API_ROW_1 = {
-    "date_start": START_DATE,
+    "date_start": START_DATE_STR,
     "campaign_id": CAMPAIGN_ID,
     "campaign_name": CAMPAIGN_NAME,
     "impressions": "1000",
@@ -123,7 +124,7 @@ def test_to_raw_returns_raw_instance():
 def test_to_raw_maps_fields_correctly():
     """All fields mapped correctly from API row dict."""
     result = _to_raw(API_ROW_1)
-    assert result.date_start == START_DATE
+    assert result.date_start == START_DATE_STR
     assert result.campaign_id == CAMPAIGN_ID
     assert result.campaign_name == CAMPAIGN_NAME
     assert result.impressions == "1000"
@@ -155,8 +156,8 @@ def test_fetch_calls_get_insights_with_correct_params(mock_client):
     fetch(mock_client, START_DATE, END_DATE)
     call_params = mock_client.get_insights.call_args[1]["params"]
     assert call_params["level"] == "campaign"
-    assert call_params["time_range"]["since"] == START_DATE
-    assert call_params["time_range"]["until"] == END_DATE
+    assert call_params["time_range"]["since"] == START_DATE_STR
+    assert call_params["time_range"]["until"] == START_DATE_STR
 
 
 def test_fetch_row_count(mock_client):

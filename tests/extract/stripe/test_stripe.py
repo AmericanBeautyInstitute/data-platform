@@ -18,8 +18,8 @@ from extract.stripe.extract import (
 )
 from extract.table import to_table
 
-START_DATE = "2024-01-15"
-END_DATE = "2024-01-15"
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
 CHARGE_ID = "ch_abc123"
 PAYMENT_INTENT_ID = "pi_abc123"
 EXPECTED_ROW_COUNT = 2
@@ -128,13 +128,13 @@ def mock_client():
 
 def test_date_to_timestamp_start_of_day():
     """Start of day timestamp is midnight UTC."""
-    result = _date_to_timestamp("2024-01-15")
+    result = _date_to_timestamp(date(2024, 1, 15))
     assert result == UNIX_TIMESTAMP_2024_01_15
 
 
 def test_date_to_timestamp_end_of_day():
     """End of day timestamp is 23:59:59 UTC."""
-    result = _date_to_timestamp("2024-01-15", end_of_day=True)
+    result = _date_to_timestamp(date(2024, 1, 15), end_of_day=True)
     assert result == UNIX_TIMESTAMP_2024_01_15 + 86399
 
 
