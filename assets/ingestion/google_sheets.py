@@ -43,6 +43,10 @@ def build_google_sheets_asset(sheet_name: str):
             sheet_name,
         )
 
+        if table.num_rows == 0:
+            context.log.warning(f"Zero rows extracted for {partition_date}")
+            return
+
         gcs_config = GCSConfig(
             bucket=ingestion_env.bucket,
             source=f"google_sheets_{sheet_name}",

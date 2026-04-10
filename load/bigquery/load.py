@@ -22,6 +22,11 @@ def load(
     job = client.load_table_from_uri(gcs_uri, partition_ref, job_config=job_config)
     job.result()
     rows_loaded = job.output_rows
+    if rows_loaded is None:
+        raise ValueError(
+            f"BigQuery job reported no row count for "
+            f"{config.project}.{config.dataset}.{config.table}"
+        )
     return rows_loaded
 
 

@@ -51,6 +51,10 @@ def google_ads_raw(
         QUERY.format(date=date_str),
     )
 
+    if table.num_rows == 0:
+        context.log.warning(f"Zero rows extracted for {partition_date}")
+        return
+
     gcs_config = GCSConfig(
         bucket=ingestion_env.bucket,
         source=TABLE,
