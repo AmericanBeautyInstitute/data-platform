@@ -96,14 +96,14 @@ def _extract_action(actions: list[dict], action_type: str) -> int:
 def _to_raw(row: dict) -> Raw:
     """Converts a Facebook Ads API row dict into a Raw instance."""
     return Raw(
-        date_start=row.get("date_start", ""),
-        campaign_id=row.get("campaign_id", ""),
-        campaign_name=row.get("campaign_name", ""),
-        impressions=row.get("impressions", "0"),
-        clicks=row.get("clicks", "0"),
-        spend=row.get("spend", "0"),
-        reach=row.get("reach", "0"),
-        frequency=row.get("frequency", "0"),
+        date_start=row["date_start"],
+        campaign_id=row["campaign_id"],
+        campaign_name=row["campaign_name"],
+        impressions=row["impressions"],
+        clicks=row["clicks"],
+        spend=row["spend"],
+        reach=row["reach"],
+        frequency=row["frequency"],
         actions=row.get("actions", []),
     )
 

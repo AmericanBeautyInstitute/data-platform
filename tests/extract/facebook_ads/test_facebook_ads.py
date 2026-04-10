@@ -104,11 +104,7 @@ def records(raw_rows):
 def mock_client():
     """Mocked Facebook Ads API client."""
     client = MagicMock()
-    mock_row_1 = MagicMock()
-    mock_row_2 = MagicMock()
-    mock_row_1.__iter__ = MagicMock(return_value=iter(API_ROW_1.items()))
-    mock_row_2.__iter__ = MagicMock(return_value=iter(API_ROW_2.items()))
-    client.get_insights.return_value = [mock_row_1, mock_row_2]
+    client.get_insights.return_value = [API_ROW_1, API_ROW_2]
     return client
 
 
@@ -147,12 +143,16 @@ def test_to_raw_maps_fields_correctly():
     assert result.actions == SAMPLE_ACTIONS
 
 
-def test_to_raw_defaults_missing_fields():
-    """Missing fields default to zero strings."""
-    result = _to_raw({})
-    assert result.impressions == "0"
-    assert result.clicks == "0"
-    assert result.spend == "0"
+def test_to_raw_missing_required_field_raises():
+    """Missing required fields raise KeyError."""
+    with pytest.raises(KeyError):
+        _to_raw({})
+
+
+def test_to_raw_actions_defaults_to_empty_list():
+    """Absent actions key defaults to empty list."""
+    row_without_actions = {k: v for k, v in API_ROW_1.items() if k != "actions"}
+    result = _to_raw(row_without_actions)
     assert result.actions == []
 
 

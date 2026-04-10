@@ -106,18 +106,21 @@ def records(raw_rows):
     return [parse(r) for r in raw_rows]
 
 
+class DictWithId(dict):
+    """A dict that also exposes an `id` attribute for Stripe pagination."""
+
+    @property
+    def id(self):
+        """Returns the value of the 'id' key, or raises KeyError if not present."""
+        return self["id"]
+
+
 @pytest.fixture
 def mock_client():
     """Mocked Stripe API client returning single page of charges."""
     client = MagicMock()
-    mock_charge_1 = MagicMock()
-    mock_charge_2 = MagicMock()
-    mock_charge_1.id = CHARGE_ID
-    mock_charge_2.id = "ch_def456"
-    mock_charge_1.__iter__ = MagicMock(return_value=iter(API_CHARGE_1.items()))
-    mock_charge_2.__iter__ = MagicMock(return_value=iter(API_CHARGE_2.items()))
     response = MagicMock()
-    response.data = [mock_charge_1, mock_charge_2]
+    response.data = [DictWithId(API_CHARGE_1), DictWithId(API_CHARGE_2)]
     response.has_more = False
     client.charges.list.return_value = response
     return client
@@ -165,13 +168,30 @@ def test_to_raw_maps_customer_email_from_billing_details():
     assert result.customer_email == EXPECTED_EMAIL
 
 
-def test_to_raw_defaults_missing_fields():
-    """Missing fields default gracefully."""
-    result = _to_raw({})
-    assert result.amount == 0
+def test_to_raw_missing_required_field_raises():
+    """Missing required fields raise KeyError."""
+    with pytest.raises(KeyError):
+        _to_raw({})
+
+
+def test_to_raw_optional_fields_default():
+    """Genuinely optional fields default when absent or null."""
+    minimal_charge = {
+        "id": CHARGE_ID,
+        "created": UNIX_TIMESTAMP_2024_01_15,
+        "amount": 15000,
+        "amount_captured": 15000,
+        "currency": "usd",
+        "status": EXPECTED_STATUS,
+        "billing_details": {"email": None, "name": None},
+    }
+    result = _to_raw(minimal_charge)
     assert result.fee == 0
-    assert result.customer_email == ""
+    assert result.net == 0
     assert result.description == ""
+    assert result.customer_email == ""
+    assert result.customer_name == ""
+    assert result.payment_intent_id == ""
 
 
 def test_to_raw_handles_null_balance_transaction():

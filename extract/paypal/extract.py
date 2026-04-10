@@ -77,9 +77,9 @@ def extract(client: PayPalClient, start_date: str, end_date: str) -> pa.Table:
 
 def _parse_transaction(txn: dict) -> Raw:
     """Converts a PayPal API transaction dict into a Raw instance."""
-    info = txn.get("transaction_info", {})
+    info = txn["transaction_info"]
     payer = txn.get("payer_info", {})
-    amount = info.get("transaction_amount", {})
+    amount = info["transaction_amount"]
     fee = info.get("fee_amount", {})
     net = info.get("transaction_net_amount", {})
     payer_name_obj = payer.get("payer_name", {})
@@ -93,11 +93,11 @@ def _parse_transaction(txn: dict) -> Raw:
         )
     )
     return Raw(
-        transaction_id=info.get("paypal_reference_id", info.get("transaction_id", "")),
-        transaction_date=info.get("transaction_initiation_date", ""),
-        transaction_amount=amount.get("value", "0"),
-        currency_code=amount.get("currency_code", "USD"),
-        transaction_status=info.get("transaction_status", ""),
+        transaction_id=info.get("paypal_reference_id") or info["transaction_id"],
+        transaction_date=info["transaction_initiation_date"],
+        transaction_amount=amount["value"],
+        currency_code=amount["currency_code"],
+        transaction_status=info["transaction_status"],
         transaction_subject=info.get("transaction_subject", ""),
         payer_email=payer.get("email_address", ""),
         payer_name=full_name,
