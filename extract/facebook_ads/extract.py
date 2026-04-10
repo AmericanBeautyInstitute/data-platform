@@ -5,7 +5,7 @@ from datetime import date
 import pyarrow as pa
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.adsinsights import AdsInsights
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from extract.table import to_table
 
@@ -126,23 +126,26 @@ def fetch(client: AdAccount, start_date: date, end_date: date) -> list[Raw]:
 def parse(raw: Raw) -> Record:
     """Converts a Raw Facebook Ads row into a typed Record."""
     actions = {a.action_type: a.value for a in raw.actions}
-    return Record(
-        date=raw.date_start,
-        campaign_id=raw.campaign_id,
-        campaign_name=raw.campaign_name,
-        impressions=raw.impressions,
-        clicks=raw.clicks,
-        spend_usd=raw.spend,
-        reach=raw.reach,
-        frequency=raw.frequency,
-        link_clicks=int(float(actions.get("link_click", "0"))),
-        leads=int(float(actions.get("lead", "0"))),
-        conversions=int(
-            float(
-                actions.get(
-                    "offsite_conversion.fb_pixel_purchase",
-                    "0",
+    try:
+        return Record(
+            date=raw.date_start,
+            campaign_id=raw.campaign_id,
+            campaign_name=raw.campaign_name,
+            impressions=raw.impressions,
+            clicks=raw.clicks,
+            spend_usd=raw.spend,
+            reach=raw.reach,
+            frequency=raw.frequency,
+            link_clicks=int(float(actions.get("link_click", "0"))),
+            leads=int(float(actions.get("lead", "0"))),
+            conversions=int(
+                float(
+                    actions.get(
+                        "offsite_conversion.fb_pixel_purchase",
+                        "0",
+                    )
                 )
-            )
-        ),
-    )
+            ),
+        )
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse Facebook Ads row: {raw}") from exc

@@ -3,7 +3,14 @@
 from datetime import UTC, date, datetime
 
 import pyarrow as pa
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 from stripe import StripeClient
 
 from extract.table import to_table
@@ -152,4 +159,7 @@ def fetch(client: StripeClient, start_date: date, end_date: date) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Stripe charge into a typed Record."""
-    return Record(**raw.model_dump())
+    try:
+        return Record(**raw.model_dump())
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse Stripe charge: {raw}") from exc
