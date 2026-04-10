@@ -8,9 +8,9 @@ import pytest
 from pydantic import ValidationError
 
 from extract.facebook_ads.extract import (
+    Action,
     Raw,
     Record,
-    _extract_action,
     _to_raw,
     extract,
     fetch,
@@ -34,6 +34,12 @@ EXPECTED_LEADS = 3
 EXPECTED_CONVERSIONS = 1
 
 SAMPLE_ACTIONS = [
+    Action(action_type="link_click", value="45"),
+    Action(action_type="lead", value="3"),
+    Action(action_type="offsite_conversion.fb_pixel_purchase", value="1"),
+]
+
+SAMPLE_ACTIONS_DICTS = [
     {"action_type": "link_click", "value": "45"},
     {"action_type": "lead", "value": "3"},
     {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1"},
@@ -72,7 +78,7 @@ API_ROW_1 = {
     "spend": "25.50",
     "reach": "900",
     "frequency": "1.11",
-    "actions": SAMPLE_ACTIONS,
+    "actions": SAMPLE_ACTIONS_DICTS,
 }
 
 API_ROW_2 = {
@@ -106,24 +112,6 @@ def mock_client():
     client = MagicMock()
     client.get_insights.return_value = [API_ROW_1, API_ROW_2]
     return client
-
-
-def test_extract_action_returns_correct_value():
-    """Returns correct integer value for a matching action type."""
-    result = _extract_action(SAMPLE_ACTIONS, "link_click")
-    assert result == EXPECTED_LINK_CLICKS
-
-
-def test_extract_action_returns_zero_for_missing_type():
-    """Returns 0 when action type is not present."""
-    result = _extract_action(SAMPLE_ACTIONS, "nonexistent_action")
-    assert result == 0
-
-
-def test_extract_action_returns_zero_for_empty_list():
-    """Returns 0 for empty actions list."""
-    result = _extract_action([], "link_click")
-    assert result == 0
 
 
 def test_to_raw_returns_raw_instance():
