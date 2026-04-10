@@ -11,7 +11,7 @@ from google.analytics.data_v1beta.types import (
     RunReportRequest,
     RunReportResponse,
 )
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 
 class ReportConfig(BaseModel):
@@ -133,12 +133,14 @@ def parse(raw: Raw, config: ReportConfig) -> Record:
     """Converts a Raw GA4 row into a typed Record."""
     dimensions = dict(zip(config.dimension_names, raw.dimensions, strict=True))
     metrics = dict(zip(config.metric_names, raw.metrics, strict=True))
-    record = Record(
-        date=raw.date,
-        dimensions=dimensions,
-        metrics=metrics,
-    )
-    return record
+    try:
+        return Record(
+            date=raw.date,
+            dimensions=dimensions,
+            metrics=metrics,
+        )
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse GA4 row: {raw}") from exc
 
 
 def to_table(records: list[Record], config: ReportConfig) -> pa.Table:

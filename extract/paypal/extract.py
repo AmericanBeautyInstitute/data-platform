@@ -3,7 +3,14 @@
 from datetime import date
 
 import pyarrow as pa
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 
 from extract.paypal.client import PayPalClient
 from extract.table import to_table
@@ -135,4 +142,7 @@ def fetch(client: PayPalClient, start_date: date, end_date: date) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw PayPal transaction into a typed Record."""
-    return Record(**raw.model_dump())
+    try:
+        return Record(**raw.model_dump())
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse PayPal transaction: {raw}") from exc
