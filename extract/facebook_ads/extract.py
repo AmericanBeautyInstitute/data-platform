@@ -22,6 +22,15 @@ INSIGHT_FIELDS = [
 ]
 
 
+class Action(BaseModel):
+    """Mirrors a single entry from the Facebook Ads actions list."""
+
+    model_config = ConfigDict(frozen=True)
+
+    action_type: str
+    value: str
+
+
 class Raw(BaseModel):
     """Mirrors a single row from the Facebook Ads Insights API response."""
 
@@ -35,7 +44,7 @@ class Raw(BaseModel):
     spend: str
     reach: str
     frequency: str
-    actions: list[dict]
+    actions: list[Action]
 
 
 class Record(BaseModel):
@@ -84,15 +93,6 @@ def extract(client: AdAccount, start_date: str, end_date: str) -> pa.Table:
     return table
 
 
-def _extract_action(actions: list[dict], action_type: str) -> int:
-    """Extracts the value for a specific action type from actions list."""
-    for action in actions:
-        if action.get("action_type") == action_type:
-            value = int(float(action.get("value", 0)))
-            return value
-    return 0
-
-
 def _to_raw(row: dict) -> Raw:
     """Converts a Facebook Ads API row dict into a Raw instance."""
     return Raw(
@@ -122,6 +122,7 @@ def fetch(client: AdAccount, start_date: str, end_date: str) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Facebook Ads row into a typed Record."""
+    actions = {a.action_type: a.value for a in raw.actions}
     return Record(
         date=raw.date_start,
         campaign_id=raw.campaign_id,
@@ -131,9 +132,14 @@ def parse(raw: Raw) -> Record:
         spend_usd=raw.spend,
         reach=raw.reach,
         frequency=raw.frequency,
-        link_clicks=_extract_action(raw.actions, "link_click"),
-        leads=_extract_action(raw.actions, "lead"),
-        conversions=_extract_action(
-            raw.actions, "offsite_conversion.fb_pixel_purchase"
+        link_clicks=int(float(actions.get("link_click", "0"))),
+        leads=int(float(actions.get("lead", "0"))),
+        conversions=int(
+            float(
+                actions.get(
+                    "offsite_conversion.fb_pixel_purchase",
+                    "0",
+                )
+            )
         ),
     )
