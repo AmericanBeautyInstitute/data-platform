@@ -82,6 +82,11 @@ def _flatten_row(row_dict: dict) -> dict:
     for key, value in row_dict.items():
         if isinstance(value, dict):
             for nested_key, nested_value in value.items():
+                if isinstance(nested_value, dict):
+                    raise ValueError(
+                        f"Expected scalar value for {key}.{nested_key}, "
+                        f"got nested dict: {nested_value}"
+                    )
                 flat_key = f"{key}.{nested_key}"
                 flattened[flat_key] = nested_value
         else:
