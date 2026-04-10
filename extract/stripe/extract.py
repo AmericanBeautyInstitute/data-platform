@@ -104,19 +104,19 @@ def _date_to_timestamp(date_str: str, end_of_day: bool = False) -> int:
 
 def _to_raw(charge: dict) -> Raw:
     """Converts a Stripe charge dict into a Raw instance."""
-    billing = charge.get("billing_details", {})
+    billing = charge["billing_details"]
     balance_txn = charge.get("balance_transaction") or {}
     fee = balance_txn.get("fee", 0) if isinstance(balance_txn, dict) else 0
     net = balance_txn.get("net", 0) if isinstance(balance_txn, dict) else 0
     return Raw(
-        charge_id=charge.get("id", ""),
-        created=charge.get("created", 0),
-        amount=charge.get("amount", 0),
-        amount_captured=charge.get("amount_captured", 0),
+        charge_id=charge["id"],
+        created=charge["created"],
+        amount=charge["amount"],
+        amount_captured=charge["amount_captured"],
         fee=fee,
         net=net,
-        currency=charge.get("currency", "usd"),
-        status=charge.get("status", ""),
+        currency=charge["currency"],
+        status=charge["status"],
         description=charge.get("description") or "",
         customer_email=billing.get("email") or charge.get("receipt_email") or "",
         customer_name=billing.get("name") or "",
