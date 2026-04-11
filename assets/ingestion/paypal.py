@@ -37,6 +37,10 @@ def paypal_transactions_raw(
     client = paypal.get_client()
     table = paypal_extract.extract(client, partition_date, partition_date)
 
+    if table.num_rows == 0:
+        context.log.warning(f"Zero rows extracted for {partition_date}")
+        return
+
     gcs_config = GCSConfig(
         bucket=ingestion_env.bucket,
         source=TABLE,
