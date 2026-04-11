@@ -11,7 +11,7 @@ from google.analytics.data_v1beta.types import (
     RunReportRequest,
     RunReportResponse,
 )
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 
 class ReportConfig(BaseModel):
@@ -57,8 +57,8 @@ class Record(BaseModel):
 def extract(
     client: BetaAnalyticsDataClient,
     property_id: str,
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     config: ReportConfig,
 ) -> pa.Table:
     """Extracts Google Analytics data into a PyArrow table."""
@@ -71,8 +71,8 @@ def extract(
 def fetch(
     client: BetaAnalyticsDataClient,
     property_id: str,
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     config: ReportConfig,
 ) -> list[Raw]:
     """Fetches raw data from the GA4 API."""
@@ -84,14 +84,19 @@ def fetch(
 
 def _build_request(
     property_id: str,
-    start_date: str,
-    end_date: str,
+    start_date: date,
+    end_date: date,
     config: ReportConfig,
 ) -> RunReportRequest:
     """Builds a GA4 RunReportRequest."""
     request = RunReportRequest(
         property=f"properties/{property_id}",
-        date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
+        date_ranges=[
+            DateRange(
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+            )
+        ],
         dimensions=[Dimension(name=d) for d in config.dimension_names],
         metrics=[Metric(name=m) for m in config.metric_names],
     )
@@ -128,12 +133,14 @@ def parse(raw: Raw, config: ReportConfig) -> Record:
     """Converts a Raw GA4 row into a typed Record."""
     dimensions = dict(zip(config.dimension_names, raw.dimensions, strict=True))
     metrics = dict(zip(config.metric_names, raw.metrics, strict=True))
-    record = Record(
-        date=raw.date,
-        dimensions=dimensions,
-        metrics=metrics,
-    )
-    return record
+    try:
+        return Record(
+            date=raw.date,
+            dimensions=dimensions,
+            metrics=metrics,
+        )
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse GA4 row: {raw}") from exc
 
 
 def to_table(records: list[Record], config: ReportConfig) -> pa.Table:

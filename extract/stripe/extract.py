@@ -3,7 +3,14 @@
 from datetime import UTC, date, datetime
 
 import pyarrow as pa
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 from stripe import StripeClient
 
 from extract.table import to_table
@@ -84,7 +91,7 @@ class Record(BaseModel):
         return dollars
 
 
-def extract(client: StripeClient, start_date: str, end_date: str) -> pa.Table:
+def extract(client: StripeClient, start_date: date, end_date: date) -> pa.Table:
     """Extracts Stripe charges into a PyArrow table."""
     raw_rows = fetch(client, start_date, end_date)
     records = [parse(r) for r in raw_rows]
@@ -92,31 +99,30 @@ def extract(client: StripeClient, start_date: str, end_date: str) -> pa.Table:
     return table
 
 
-def _date_to_timestamp(date_str: str, end_of_day: bool = False) -> int:
-    """Converts an ISO date string to a UTC Unix timestamp."""
-    dt = datetime.fromisoformat(date_str)
+def _date_to_timestamp(d: date, end_of_day: bool = False) -> int:
+    """Converts a date to a UTC Unix timestamp."""
+    dt = datetime(d.year, d.month, d.day, tzinfo=UTC)
     if end_of_day:
         dt = dt.replace(hour=23, minute=59, second=59)
-    utc_dt = dt.replace(tzinfo=UTC)
-    timestamp = int(utc_dt.timestamp())
+    timestamp = int(dt.timestamp())
     return timestamp
 
 
 def _to_raw(charge: dict) -> Raw:
     """Converts a Stripe charge dict into a Raw instance."""
-    billing = charge.get("billing_details", {})
+    billing = charge["billing_details"]
     balance_txn = charge.get("balance_transaction") or {}
     fee = balance_txn.get("fee", 0) if isinstance(balance_txn, dict) else 0
     net = balance_txn.get("net", 0) if isinstance(balance_txn, dict) else 0
     return Raw(
-        charge_id=charge.get("id", ""),
-        created=charge.get("created", 0),
-        amount=charge.get("amount", 0),
-        amount_captured=charge.get("amount_captured", 0),
+        charge_id=charge["id"],
+        created=charge["created"],
+        amount=charge["amount"],
+        amount_captured=charge["amount_captured"],
         fee=fee,
         net=net,
-        currency=charge.get("currency", "usd"),
-        status=charge.get("status", ""),
+        currency=charge["currency"],
+        status=charge["status"],
         description=charge.get("description") or "",
         customer_email=billing.get("email") or charge.get("receipt_email") or "",
         customer_name=billing.get("name") or "",
@@ -124,7 +130,7 @@ def _to_raw(charge: dict) -> Raw:
     )
 
 
-def fetch(client: StripeClient, start_date: str, end_date: str) -> list[Raw]:
+def fetch(client: StripeClient, start_date: date, end_date: date) -> list[Raw]:
     """Fetches all charges for the given date range from Stripe API."""
     raw_rows: list[Raw] = []
     start_ts = _date_to_timestamp(start_date)
@@ -153,4 +159,7 @@ def fetch(client: StripeClient, start_date: str, end_date: str) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Stripe charge into a typed Record."""
-    return Record(**raw.model_dump())
+    try:
+        return Record(**raw.model_dump())
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse Stripe charge: {raw}") from exc

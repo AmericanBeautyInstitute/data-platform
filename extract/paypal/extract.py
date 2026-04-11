@@ -3,7 +3,14 @@
 from datetime import date
 
 import pyarrow as pa
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 
 from extract.paypal.client import PayPalClient
 from extract.table import to_table
@@ -67,7 +74,7 @@ class Record(BaseModel):
         return float(v)
 
 
-def extract(client: PayPalClient, start_date: str, end_date: str) -> pa.Table:
+def extract(client: PayPalClient, start_date: date, end_date: date) -> pa.Table:
     """Extracts PayPal transactions into a PyArrow table."""
     raw_rows = fetch(client, start_date, end_date)
     records = [parse(r) for r in raw_rows]
@@ -93,11 +100,11 @@ def _parse_transaction(transaction: dict) -> Raw:
         )
     )
     return Raw(
-        transaction_id=info.get("paypal_reference_id", info.get("transaction_id", "")),
-        transaction_date=info.get("transaction_initiation_date", ""),
-        transaction_amount=amount.get("value", "0"),
-        currency_code=amount.get("currency_code", "USD"),
-        transaction_status=info.get("transaction_status", ""),
+        transaction_id=info.get("paypal_reference_id") or info["transaction_id"],
+        transaction_date=info["transaction_initiation_date"],
+        transaction_amount=amount["value"],
+        currency_code=amount["currency_code"],
+        transaction_status=info["transaction_status"],
         transaction_subject=info.get("transaction_subject", ""),
         payer_email=payer.get("email_address", ""),
         payer_name=full_name,
@@ -106,7 +113,7 @@ def _parse_transaction(transaction: dict) -> Raw:
     )
 
 
-def fetch(client: PayPalClient, start_date: str, end_date: str) -> list[Raw]:
+def fetch(client: PayPalClient, start_date: date, end_date: date) -> list[Raw]:
     """Fetches all transactions for the given date range from PayPal API."""
     raw_rows: list[Raw] = []
     page = 1
@@ -115,8 +122,8 @@ def fetch(client: PayPalClient, start_date: str, end_date: str) -> list[Raw]:
         response = client.get(
             "/v1/reporting/transactions",
             params={
-                "start_date": f"{start_date}T00:00:00-0000",
-                "end_date": f"{end_date}T23:59:59-0000",
+                "start_date": f"{start_date.isoformat()}T00:00:00-0000",
+                "end_date": f"{end_date.isoformat()}T23:59:59-0000",
                 "fields": "all",
                 "page_size": PAGE_SIZE,
                 "page": page,
@@ -135,4 +142,7 @@ def fetch(client: PayPalClient, start_date: str, end_date: str) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw PayPal transaction into a typed Record."""
-    return Record(**raw.model_dump())
+    try:
+        return Record(**raw.model_dump())
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse PayPal transaction: {raw}") from exc

@@ -1,5 +1,6 @@
 """Tests for Google Analytics ingestion asset."""
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
@@ -146,8 +147,8 @@ def test_materialize_passes_date_range_to_extract(env_vars, google_analytics_res
         )
 
     args = mock_extract.call_args[0]
-    assert args[2] == PARTITION_KEY
-    assert args[3] == PARTITION_KEY
+    assert args[2] == date.fromisoformat(PARTITION_KEY)
+    assert args[3] == date.fromisoformat(PARTITION_KEY)
 
 
 def test_materialize_passes_property_id_to_extract(env_vars, google_analytics_resource):

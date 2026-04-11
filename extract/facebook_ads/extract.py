@@ -5,7 +5,7 @@ from datetime import date
 import pyarrow as pa
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.adsinsights import AdsInsights
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from extract.table import to_table
 
@@ -22,6 +22,15 @@ INSIGHT_FIELDS = [
 ]
 
 
+class Action(BaseModel):
+    """Mirrors a single entry from the Facebook Ads actions list."""
+
+    model_config = ConfigDict(frozen=True)
+
+    action_type: str
+    value: str
+
+
 class Raw(BaseModel):
     """Mirrors a single row from the Facebook Ads Insights API response."""
 
@@ -35,7 +44,7 @@ class Raw(BaseModel):
     spend: str
     reach: str
     frequency: str
-    actions: list[dict]
+    actions: list[Action]
 
 
 class Record(BaseModel):
@@ -76,7 +85,7 @@ class Record(BaseModel):
         return float(v)
 
 
-def extract(client: AdAccount, start_date: str, end_date: str) -> pa.Table:
+def extract(client: AdAccount, start_date: date, end_date: date) -> pa.Table:
     """Extracts Facebook Ads campaign insights into a PyArrow table."""
     raw_rows = fetch(client, start_date, end_date)
     records = [parse(r) for r in raw_rows]
@@ -84,35 +93,29 @@ def extract(client: AdAccount, start_date: str, end_date: str) -> pa.Table:
     return table
 
 
-def _extract_action(actions: list[dict], action_type: str) -> int:
-    """Extracts the value for a specific action type from actions list."""
-    for action in actions:
-        if action.get("action_type") == action_type:
-            value = int(float(action.get("value", 0)))
-            return value
-    return 0
-
-
 def _to_raw(row: dict) -> Raw:
     """Converts a Facebook Ads API row dict into a Raw instance."""
     return Raw(
-        date_start=row.get("date_start", ""),
-        campaign_id=row.get("campaign_id", ""),
-        campaign_name=row.get("campaign_name", ""),
-        impressions=row.get("impressions", "0"),
-        clicks=row.get("clicks", "0"),
-        spend=row.get("spend", "0"),
-        reach=row.get("reach", "0"),
-        frequency=row.get("frequency", "0"),
+        date_start=row["date_start"],
+        campaign_id=row["campaign_id"],
+        campaign_name=row["campaign_name"],
+        impressions=row["impressions"],
+        clicks=row["clicks"],
+        spend=row["spend"],
+        reach=row["reach"],
+        frequency=row["frequency"],
         actions=row.get("actions", []),
     )
 
 
-def fetch(client: AdAccount, start_date: str, end_date: str) -> list[Raw]:
+def fetch(client: AdAccount, start_date: date, end_date: date) -> list[Raw]:
     """Fetches raw campaign insights from the Facebook Ads API."""
     params = {
         "level": "campaign",
-        "time_range": {"since": start_date, "until": end_date},
+        "time_range": {
+            "since": start_date.isoformat(),
+            "until": end_date.isoformat(),
+        },
         "time_increment": 1,
     }
     insights = client.get_insights(fields=INSIGHT_FIELDS, params=params)
@@ -122,18 +125,27 @@ def fetch(client: AdAccount, start_date: str, end_date: str) -> list[Raw]:
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Facebook Ads row into a typed Record."""
-    return Record(
-        date=raw.date_start,
-        campaign_id=raw.campaign_id,
-        campaign_name=raw.campaign_name,
-        impressions=raw.impressions,
-        clicks=raw.clicks,
-        spend_usd=raw.spend,
-        reach=raw.reach,
-        frequency=raw.frequency,
-        link_clicks=_extract_action(raw.actions, "link_click"),
-        leads=_extract_action(raw.actions, "lead"),
-        conversions=_extract_action(
-            raw.actions, "offsite_conversion.fb_pixel_purchase"
-        ),
-    )
+    actions = {a.action_type: a.value for a in raw.actions}
+    try:
+        return Record(
+            date=raw.date_start,
+            campaign_id=raw.campaign_id,
+            campaign_name=raw.campaign_name,
+            impressions=raw.impressions,
+            clicks=raw.clicks,
+            spend_usd=raw.spend,
+            reach=raw.reach,
+            frequency=raw.frequency,
+            link_clicks=int(float(actions.get("link_click", "0"))),
+            leads=int(float(actions.get("lead", "0"))),
+            conversions=int(
+                float(
+                    actions.get(
+                        "offsite_conversion.fb_pixel_purchase",
+                        "0",
+                    )
+                )
+            ),
+        )
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse Facebook Ads row: {raw}") from exc

@@ -17,8 +17,9 @@ from extract.paypal.extract import (
 )
 from extract.table import to_table
 
-START_DATE = "2024-01-15"
-END_DATE = "2024-01-15"
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
+START_DATE_STR = "2024-01-15"
 TRANSACTION_ID = "TXN123456"
 EXPECTED_ROW_COUNT = 2
 EXPECTED_COLUMN_COUNT = 10
@@ -144,14 +145,28 @@ def test_parse_transaction_maps_payer_full_name():
     assert result.payer_name == EXPECTED_NAME
 
 
-def test_parse_transaction_defaults_missing_fields():
-    """Missing fields default gracefully."""
-    result = _parse_transaction({})
-    assert result.transaction_amount == "0"
-    assert result.fee_amount == "0"
-    assert result.net_amount == "0"
+def test_parse_transaction_missing_required_field_raises():
+    """Missing transaction_info raises KeyError."""
+    with pytest.raises(KeyError):
+        _parse_transaction({})
+
+
+def test_parse_transaction_optional_fields_default():
+    """Genuinely optional fields default when absent."""
+    minimal_txn = {
+        "transaction_info": {
+            "transaction_id": TRANSACTION_ID,
+            "transaction_initiation_date": "2024-01-15T10:30:00+0000",
+            "transaction_amount": {"value": "150.00", "currency_code": "USD"},
+            "transaction_status": EXPECTED_STATUS,
+        },
+    }
+    result = _parse_transaction(minimal_txn)
+    assert result.transaction_subject == ""
     assert result.payer_email == ""
     assert result.payer_name == ""
+    assert result.fee_amount == "0"
+    assert result.net_amount == "0"
 
 
 def test_fetch_returns_list_of_raw(mock_client):
@@ -170,8 +185,8 @@ def test_fetch_calls_api_with_correct_date_range(mock_client):
     """API called with correct start and end date params."""
     fetch(mock_client, START_DATE, END_DATE)
     call_params = mock_client.get.call_args[1]["params"]
-    assert START_DATE in call_params["start_date"]
-    assert END_DATE in call_params["end_date"]
+    assert START_DATE_STR in call_params["start_date"]
+    assert START_DATE_STR in call_params["end_date"]
 
 
 def test_fetch_paginates_multiple_pages():

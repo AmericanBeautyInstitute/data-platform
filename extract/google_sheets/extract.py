@@ -36,6 +36,11 @@ def fetch(client, spreadsheet_id: str, sheet_name: str) -> Raw:
         sheet.values().get(spreadsheetId=spreadsheet_id, range=sheet_name).execute()
     )
     values = response.get("values", [])
+    if not values:
+        raise ValueError(
+            f"Sheet '{sheet_name}' in spreadsheet '{spreadsheet_id}' "
+            f"is empty or has no header row"
+        )
     headers = values[0]
     rows = values[1:]
     return Raw(headers=headers, rows=rows)

@@ -35,7 +35,7 @@ def stripe_charges_raw(
     date_str = partition_date.isoformat()
 
     client = stripe.get_client()
-    table = stripe_extract.extract(client, date_str, date_str)
+    table = stripe_extract.extract(client, partition_date, partition_date)
 
     if table.num_rows == 0:
         context.log.warning(f"Zero rows extracted for {partition_date}")

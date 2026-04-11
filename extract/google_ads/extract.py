@@ -5,7 +5,7 @@ from datetime import date
 import pyarrow as pa
 from google.ads.googleads.client import GoogleAdsClient
 from google.protobuf.json_format import MessageToDict
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from extract.table import to_table
 
@@ -82,6 +82,11 @@ def _flatten_row(row_dict: dict) -> dict:
     for key, value in row_dict.items():
         if isinstance(value, dict):
             for nested_key, nested_value in value.items():
+                if isinstance(nested_value, dict):
+                    raise ValueError(
+                        f"Expected scalar value for {key}.{nested_key}, "
+                        f"got nested dict: {nested_value}"
+                    )
                 flat_key = f"{key}.{nested_key}"
                 flattened[flat_key] = nested_value
         else:
@@ -121,4 +126,7 @@ def fetch(
 
 def parse(raw: Raw) -> Record:
     """Converts a Raw Google Ads row into a typed Record."""
-    return Record(**raw.model_dump())
+    try:
+        return Record(**raw.model_dump())
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse Google Ads row: {raw}") from exc

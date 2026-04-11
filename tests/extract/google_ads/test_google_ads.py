@@ -107,6 +107,14 @@ def test_flatten_row_empty_dict():
     assert result == {}
 
 
+def test_flatten_row_raises_on_nested_non_scalar():
+    """Nested dict value raises ValueError."""
+    nested = {"metrics": {"nested_field": {"inner": "value"}}}
+
+    with pytest.raises(ValueError, match="Expected scalar value"):
+        _flatten_row(nested)
+
+
 def test_to_raw_returns_raw_instance():
     """Returns a Raw instance."""
     result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)

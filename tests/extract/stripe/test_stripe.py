@@ -18,8 +18,8 @@ from extract.stripe.extract import (
 )
 from extract.table import to_table
 
-START_DATE = "2024-01-15"
-END_DATE = "2024-01-15"
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
 CHARGE_ID = "ch_abc123"
 PAYMENT_INTENT_ID = "pi_abc123"
 EXPECTED_ROW_COUNT = 2
@@ -106,18 +106,21 @@ def records(raw_rows):
     return [parse(r) for r in raw_rows]
 
 
+class DictWithId(dict):
+    """A dict that also exposes an `id` attribute for Stripe pagination."""
+
+    @property
+    def id(self):
+        """Returns the value of the 'id' key, or raises KeyError if not present."""
+        return self["id"]
+
+
 @pytest.fixture
 def mock_client():
     """Mocked Stripe API client returning single page of charges."""
     client = MagicMock()
-    mock_charge_1 = MagicMock()
-    mock_charge_2 = MagicMock()
-    mock_charge_1.id = CHARGE_ID
-    mock_charge_2.id = "ch_def456"
-    mock_charge_1.__iter__ = MagicMock(return_value=iter(API_CHARGE_1.items()))
-    mock_charge_2.__iter__ = MagicMock(return_value=iter(API_CHARGE_2.items()))
     response = MagicMock()
-    response.data = [mock_charge_1, mock_charge_2]
+    response.data = [DictWithId(API_CHARGE_1), DictWithId(API_CHARGE_2)]
     response.has_more = False
     client.charges.list.return_value = response
     return client
@@ -125,13 +128,13 @@ def mock_client():
 
 def test_date_to_timestamp_start_of_day():
     """Start of day timestamp is midnight UTC."""
-    result = _date_to_timestamp("2024-01-15")
+    result = _date_to_timestamp(date(2024, 1, 15))
     assert result == UNIX_TIMESTAMP_2024_01_15
 
 
 def test_date_to_timestamp_end_of_day():
     """End of day timestamp is 23:59:59 UTC."""
-    result = _date_to_timestamp("2024-01-15", end_of_day=True)
+    result = _date_to_timestamp(date(2024, 1, 15), end_of_day=True)
     assert result == UNIX_TIMESTAMP_2024_01_15 + 86399
 
 
@@ -165,13 +168,30 @@ def test_to_raw_maps_customer_email_from_billing_details():
     assert result.customer_email == EXPECTED_EMAIL
 
 
-def test_to_raw_defaults_missing_fields():
-    """Missing fields default gracefully."""
-    result = _to_raw({})
-    assert result.amount == 0
+def test_to_raw_missing_required_field_raises():
+    """Missing required fields raise KeyError."""
+    with pytest.raises(KeyError):
+        _to_raw({})
+
+
+def test_to_raw_optional_fields_default():
+    """Genuinely optional fields default when absent or null."""
+    minimal_charge = {
+        "id": CHARGE_ID,
+        "created": UNIX_TIMESTAMP_2024_01_15,
+        "amount": 15000,
+        "amount_captured": 15000,
+        "currency": "usd",
+        "status": EXPECTED_STATUS,
+        "billing_details": {"email": None, "name": None},
+    }
+    result = _to_raw(minimal_charge)
     assert result.fee == 0
-    assert result.customer_email == ""
+    assert result.net == 0
     assert result.description == ""
+    assert result.customer_email == ""
+    assert result.customer_name == ""
+    assert result.payment_intent_id == ""
 
 
 def test_to_raw_handles_null_balance_transaction():

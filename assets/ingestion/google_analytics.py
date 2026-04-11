@@ -43,8 +43,8 @@ def google_analytics_raw(
     table = ga_extract.extract(
         client,
         google_analytics.property_id,
-        date_str,
-        date_str,
+        partition_date,
+        partition_date,
         REPORT_CONFIG,
     )
 

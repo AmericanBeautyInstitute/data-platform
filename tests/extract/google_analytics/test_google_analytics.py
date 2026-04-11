@@ -20,8 +20,10 @@ from extract.google_analytics.extract import (
 )
 
 PROPERTY_ID = "123456"
-START_DATE = "2024-01-01"
-END_DATE = "2024-01-31"
+START_DATE = date(2024, 1, 1)
+END_DATE = date(2024, 1, 31)
+START_DATE_STR = "2024-01-01"
+END_DATE_STR = "2024-01-31"
 EXPECTED_ROW_COUNT = 2
 EXPECTED_COLUMN_COUNT = 4
 
@@ -98,8 +100,8 @@ def test_build_request_sets_date_range():
     )
     request = _build_request(PROPERTY_ID, START_DATE, END_DATE, cfg)
 
-    assert request.date_ranges[0].start_date == START_DATE
-    assert request.date_ranges[0].end_date == END_DATE
+    assert request.date_ranges[0].start_date == START_DATE_STR
+    assert request.date_ranges[0].end_date == END_DATE_STR
 
 
 def test_build_request_sets_dimensions(config):

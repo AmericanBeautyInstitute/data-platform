@@ -8,9 +8,9 @@ import pytest
 from pydantic import ValidationError
 
 from extract.facebook_ads.extract import (
+    Action,
     Raw,
     Record,
-    _extract_action,
     _to_raw,
     extract,
     fetch,
@@ -18,8 +18,9 @@ from extract.facebook_ads.extract import (
 )
 from extract.table import to_table
 
-START_DATE = "2024-01-15"
-END_DATE = "2024-01-15"
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
+START_DATE_STR = "2024-01-15"
 CAMPAIGN_ID = "123456789"
 CAMPAIGN_NAME = "ABI Spring Enrollment"
 EXPECTED_ROW_COUNT = 2
@@ -34,13 +35,19 @@ EXPECTED_LEADS = 3
 EXPECTED_CONVERSIONS = 1
 
 SAMPLE_ACTIONS = [
+    Action(action_type="link_click", value="45"),
+    Action(action_type="lead", value="3"),
+    Action(action_type="offsite_conversion.fb_pixel_purchase", value="1"),
+]
+
+SAMPLE_ACTIONS_DICTS = [
     {"action_type": "link_click", "value": "45"},
     {"action_type": "lead", "value": "3"},
     {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1"},
 ]
 
 RAW_ROW_1 = Raw(
-    date_start=START_DATE,
+    date_start=START_DATE_STR,
     campaign_id=CAMPAIGN_ID,
     campaign_name=CAMPAIGN_NAME,
     impressions="1000",
@@ -64,7 +71,7 @@ RAW_ROW_2 = Raw(
 )
 
 API_ROW_1 = {
-    "date_start": START_DATE,
+    "date_start": START_DATE_STR,
     "campaign_id": CAMPAIGN_ID,
     "campaign_name": CAMPAIGN_NAME,
     "impressions": "1000",
@@ -72,7 +79,7 @@ API_ROW_1 = {
     "spend": "25.50",
     "reach": "900",
     "frequency": "1.11",
-    "actions": SAMPLE_ACTIONS,
+    "actions": SAMPLE_ACTIONS_DICTS,
 }
 
 API_ROW_2 = {
@@ -104,30 +111,8 @@ def records(raw_rows):
 def mock_client():
     """Mocked Facebook Ads API client."""
     client = MagicMock()
-    mock_row_1 = MagicMock()
-    mock_row_2 = MagicMock()
-    mock_row_1.__iter__ = MagicMock(return_value=iter(API_ROW_1.items()))
-    mock_row_2.__iter__ = MagicMock(return_value=iter(API_ROW_2.items()))
-    client.get_insights.return_value = [mock_row_1, mock_row_2]
+    client.get_insights.return_value = [API_ROW_1, API_ROW_2]
     return client
-
-
-def test_extract_action_returns_correct_value():
-    """Returns correct integer value for a matching action type."""
-    result = _extract_action(SAMPLE_ACTIONS, "link_click")
-    assert result == EXPECTED_LINK_CLICKS
-
-
-def test_extract_action_returns_zero_for_missing_type():
-    """Returns 0 when action type is not present."""
-    result = _extract_action(SAMPLE_ACTIONS, "nonexistent_action")
-    assert result == 0
-
-
-def test_extract_action_returns_zero_for_empty_list():
-    """Returns 0 for empty actions list."""
-    result = _extract_action([], "link_click")
-    assert result == 0
 
 
 def test_to_raw_returns_raw_instance():
@@ -139,7 +124,7 @@ def test_to_raw_returns_raw_instance():
 def test_to_raw_maps_fields_correctly():
     """All fields mapped correctly from API row dict."""
     result = _to_raw(API_ROW_1)
-    assert result.date_start == START_DATE
+    assert result.date_start == START_DATE_STR
     assert result.campaign_id == CAMPAIGN_ID
     assert result.campaign_name == CAMPAIGN_NAME
     assert result.impressions == "1000"
@@ -147,12 +132,16 @@ def test_to_raw_maps_fields_correctly():
     assert result.actions == SAMPLE_ACTIONS
 
 
-def test_to_raw_defaults_missing_fields():
-    """Missing fields default to zero strings."""
-    result = _to_raw({})
-    assert result.impressions == "0"
-    assert result.clicks == "0"
-    assert result.spend == "0"
+def test_to_raw_missing_required_field_raises():
+    """Missing required fields raise KeyError."""
+    with pytest.raises(KeyError):
+        _to_raw({})
+
+
+def test_to_raw_actions_defaults_to_empty_list():
+    """Absent actions key defaults to empty list."""
+    row_without_actions = {k: v for k, v in API_ROW_1.items() if k != "actions"}
+    result = _to_raw(row_without_actions)
     assert result.actions == []
 
 
@@ -167,8 +156,8 @@ def test_fetch_calls_get_insights_with_correct_params(mock_client):
     fetch(mock_client, START_DATE, END_DATE)
     call_params = mock_client.get_insights.call_args[1]["params"]
     assert call_params["level"] == "campaign"
-    assert call_params["time_range"]["since"] == START_DATE
-    assert call_params["time_range"]["until"] == END_DATE
+    assert call_params["time_range"]["since"] == START_DATE_STR
+    assert call_params["time_range"]["until"] == START_DATE_STR
 
 
 def test_fetch_row_count(mock_client):

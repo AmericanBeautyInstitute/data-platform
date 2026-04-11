@@ -1,5 +1,6 @@
 """Tests for PayPal ingestion asset."""
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
@@ -131,8 +132,8 @@ def test_materialize_passes_date_range_to_extract(env_vars, paypal_resource):
         )
 
     args = mock_extract.call_args[0]
-    assert args[1] == PARTITION_KEY
-    assert args[2] == PARTITION_KEY
+    assert args[1] == date.fromisoformat(PARTITION_KEY)
+    assert args[2] == date.fromisoformat(PARTITION_KEY)
 
 
 def test_materialize_gcs_source_is_table_name(env_vars, paypal_resource):
