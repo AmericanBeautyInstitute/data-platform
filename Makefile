@@ -8,12 +8,7 @@ ci:
 	make reformat
 	make lint
 	make type_check
-	make docs
 	make test
-
-docs:
-	mkdir -p scratch/tmp/site
-	uv run mkdocs build --clean -d scratch/tmp/site
 
 lint:
 	uv run ruff check --fix .
@@ -33,6 +28,17 @@ test:
 
 type_check:
 	uv run ty check tests
+
+################################################################################
+
+docs:
+	mkdir -p scratch/tmp/site
+	uv run mkdocs build --clean -d scratch/tmp/site
+
+serve:
+	uv run mkdocs serve
+
+################################################################################
 
 ssh:
 	gcloud compute ssh dagster-daemon \
