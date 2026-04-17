@@ -3,7 +3,7 @@ help:
 
 ################################################################################
 
-build:
+ci:
 	uv sync --all-groups
 	make reformat
 	make lint

@@ -30,9 +30,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Build
+      - name: Tests
         run: |
-          make build
+          make ci
 
       - name: Generate coverage report
         run: |
