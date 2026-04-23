@@ -53,25 +53,25 @@ def mock_client():
     return client
 
 
-def test_build_partition_ref_correct_format(config):
-    """Partition ref uses project.dataset.table$YYYYMMDD format."""
-    result = _build_partition_ref(config)
+def test_build_job_config_autodetect_is_false(config):
+    """Autodetect is disabled."""
+    result = _build_job_config(config)
 
-    assert result == EXPECTED_PARTITION_REF
-
-
-def test_build_partition_ref_date_format(config):
-    """Date in partition ref uses YYYYMMDD format without separators."""
-    result = _build_partition_ref(config)
-
-    assert "$20240115" in result
+    assert result.autodetect is False
 
 
-def test_build_partition_ref_contains_full_table_path(config):
-    """Partition ref contains full project.dataset.table path."""
-    result = _build_partition_ref(config)
+def test_build_job_config_clustering_fields_set(config_with_clustering):
+    """Clustering fields are set when provided in config."""
+    result = _build_job_config(config_with_clustering)
 
-    assert f"{PROJECT}.{DATASET}.{TABLE}" in result
+    assert result.clustering_fields == ["customer_id", "campaign_id"]
+
+
+def test_build_job_config_no_clustering_when_empty(config):
+    """Clustering fields is None when config has empty list."""
+    result = _build_job_config(config)
+
+    assert result.clustering_fields is None
 
 
 def test_build_job_config_returns_load_job_config(config):
@@ -88,20 +88,6 @@ def test_build_job_config_source_format_is_parquet(config):
     assert result.source_format == bigquery.SourceFormat.PARQUET
 
 
-def test_build_job_config_write_disposition_is_truncate(config):
-    """Write disposition is WRITE_TRUNCATE."""
-    result = _build_job_config(config)
-
-    assert result.write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
-
-
-def test_build_job_config_autodetect_is_false(config):
-    """Autodetect is disabled."""
-    result = _build_job_config(config)
-
-    assert result.autodetect is False
-
-
 def test_build_job_config_time_partitioning_field(config):
     """Time partitioning uses configured partition field."""
     result = _build_job_config(config)
@@ -109,25 +95,39 @@ def test_build_job_config_time_partitioning_field(config):
     assert result.time_partitioning.field == config.partition_field
 
 
-def test_build_job_config_no_clustering_when_empty(config):
-    """Clustering fields is None when config has empty list."""
+def test_build_job_config_write_disposition_is_truncate(config):
+    """Write disposition is WRITE_TRUNCATE."""
     result = _build_job_config(config)
 
-    assert result.clustering_fields is None
+    assert result.write_disposition == bigquery.WriteDisposition.WRITE_TRUNCATE
 
 
-def test_build_job_config_clustering_fields_set(config_with_clustering):
-    """Clustering fields are set when provided in config."""
-    result = _build_job_config(config_with_clustering)
+def test_build_partition_ref_contains_full_table_path(config):
+    """Partition ref contains full project.dataset.table path."""
+    result = _build_partition_ref(config)
 
-    assert result.clustering_fields == ["customer_id", "campaign_id"]
+    assert f"{PROJECT}.{DATASET}.{TABLE}" in result
 
 
-def test_load_returns_row_count(mock_client, config):
-    """Returns number of rows loaded."""
-    result = load(GCS_URI, config, mock_client)
+def test_build_partition_ref_correct_format(config):
+    """Partition ref uses project.dataset.table$YYYYMMDD format."""
+    result = _build_partition_ref(config)
 
-    assert result == EXPECTED_ROWS_LOADED
+    assert result == EXPECTED_PARTITION_REF
+
+
+def test_build_partition_ref_date_format(config):
+    """Date in partition ref uses YYYYMMDD format without separators."""
+    result = _build_partition_ref(config)
+
+    assert "$20240115" in result
+
+
+def test_load_calls_job_result(mock_client, config):
+    """job.result() is called to block until load completes."""
+    load(GCS_URI, config, mock_client)
+
+    mock_client.load_table_from_uri.return_value.result.assert_called_once()
 
 
 def test_load_calls_load_table_from_uri(mock_client, config):
@@ -141,11 +141,19 @@ def test_load_calls_load_table_from_uri(mock_client, config):
     )
 
 
-def test_load_calls_job_result(mock_client, config):
-    """job.result() is called to block until load completes."""
+def test_load_idempotent_on_repeated_calls(mock_client, config):
+    """Repeated loads with same config call load_table_from_uri each time."""
+    load(GCS_URI, config, mock_client)
     load(GCS_URI, config, mock_client)
 
-    mock_client.load_table_from_uri.return_value.result.assert_called_once()
+    assert mock_client.load_table_from_uri.call_count == EXPECTED_IDEMPOTENT_CALL_COUNT
+
+
+def test_load_returns_row_count(mock_client, config):
+    """Returns number of rows loaded."""
+    result = load(GCS_URI, config, mock_client)
+
+    assert result == EXPECTED_ROWS_LOADED
 
 
 def test_load_uses_correct_partition_ref(mock_client, config):
@@ -154,11 +162,3 @@ def test_load_uses_correct_partition_ref(mock_client, config):
 
     call_args = mock_client.load_table_from_uri.call_args
     assert call_args.args[1] == EXPECTED_PARTITION_REF
-
-
-def test_load_idempotent_on_repeated_calls(mock_client, config):
-    """Repeated loads with same config call load_table_from_uri each time."""
-    load(GCS_URI, config, mock_client)
-    load(GCS_URI, config, mock_client)
-
-    assert mock_client.load_table_from_uri.call_count == EXPECTED_IDEMPOTENT_CALL_COUNT

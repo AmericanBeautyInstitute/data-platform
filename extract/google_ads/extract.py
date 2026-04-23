@@ -71,6 +71,23 @@ def extract(
     return table
 
 
+def fetch(
+    client: GoogleAdsClient,
+    customer_id: str,
+    query: str,
+) -> list[Raw]:
+    """Fetches raw data from the Google Ads API."""
+    service = client.get_service("GoogleAdsService")
+    response = service.search(customer_id=customer_id, query=query)
+    raw_rows = []
+    for row in response:
+        row_dict = MessageToDict(row._pb)
+        flattened = _flatten_row(row_dict)
+        raw = _to_raw(flattened, customer_id)
+        raw_rows.append(raw)
+    return raw_rows
+
+
 def _flatten_row(row_dict: dict) -> dict:
     """Flattens a nested protobuf dict into dot-notation keys.
 
@@ -105,23 +122,6 @@ def _to_raw(row_dict: dict, customer_id: str) -> Raw:
         customer_id=customer_id,
     )
     return raw
-
-
-def fetch(
-    client: GoogleAdsClient,
-    customer_id: str,
-    query: str,
-) -> list[Raw]:
-    """Fetches raw data from the Google Ads API."""
-    service = client.get_service("GoogleAdsService")
-    response = service.search(customer_id=customer_id, query=query)
-    raw_rows = []
-    for row in response:
-        row_dict = MessageToDict(row._pb)
-        flattened = _flatten_row(row_dict)
-        raw = _to_raw(flattened, customer_id)
-        raw_rows.append(raw)
-    return raw_rows
 
 
 def parse(raw: Raw) -> Record:

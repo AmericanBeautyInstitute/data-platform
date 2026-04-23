@@ -59,9 +59,9 @@ def facebook_ads_resource():
     )
 
 
-def test_asset_name():
-    """Asset name is facebook_ads_raw."""
-    assert facebook_ads_raw.key.path[-1] == "facebook_ads_raw"
+def test_asset_has_daily_partitions():
+    """Asset uses DailyPartitionsDefinition."""
+    assert isinstance(facebook_ads_raw.partitions_def, DailyPartitionsDefinition)
 
 
 def test_asset_has_ingestion_group():
@@ -69,74 +69,9 @@ def test_asset_has_ingestion_group():
     assert facebook_ads_raw.group_names_by_key[facebook_ads_raw.key] == "ingestion"
 
 
-def test_asset_has_daily_partitions():
-    """Asset uses DailyPartitionsDefinition."""
-    assert isinstance(facebook_ads_raw.partitions_def, DailyPartitionsDefinition)
-
-
-def test_materialize_succeeds(env_vars, facebook_ads_resource):
-    """Asset materializes without error using mocked dependencies."""
-    with (
-        patch(
-            "assets.ingestion.facebook_ads.fb_extract.extract",
-            return_value=SAMPLE_TABLE,
-        ),
-        patch("assets.ingestion.facebook_ads.gcs_load.load", return_value=FAKE_GCS_URI),
-        patch(
-            "assets.ingestion.facebook_ads.bq_load.load", return_value=FAKE_ROWS_LOADED
-        ),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.FacebookAdsResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        result = materialize(
-            [facebook_ads_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "facebook_ads": facebook_ads_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    assert result.success
-
-
-def test_materialize_passes_date_range_to_extract(env_vars, facebook_ads_resource):
-    """extract() is called with start and end date equal to partition date."""
-    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
-
-    with (
-        patch("assets.ingestion.facebook_ads.fb_extract.extract", mock_extract),
-        patch("assets.ingestion.facebook_ads.gcs_load.load", return_value=FAKE_GCS_URI),
-        patch(
-            "assets.ingestion.facebook_ads.bq_load.load", return_value=FAKE_ROWS_LOADED
-        ),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.FacebookAdsResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        materialize(
-            [facebook_ads_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "facebook_ads": facebook_ads_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    args = mock_extract.call_args[0]
-    assert args[1] == date.fromisoformat(PARTITION_KEY)
-    assert args[2] == date.fromisoformat(PARTITION_KEY)
+def test_asset_name():
+    """Asset name is facebook_ads_raw."""
+    assert facebook_ads_raw.key.path[-1] == "facebook_ads_raw"
 
 
 def test_materialize_gcs_source_is_table_name(env_vars, facebook_ads_resource):
@@ -206,3 +141,68 @@ def test_materialize_output_metadata_keys(env_vars, facebook_ads_resource):
     mat_event = result.get_asset_materialization_events()[0]
     metadata_keys = set(mat_event.materialization.metadata.keys())
     assert EXPECTED_METADATA_KEYS.issubset(metadata_keys)
+
+
+def test_materialize_passes_date_range_to_extract(env_vars, facebook_ads_resource):
+    """extract() is called with start and end date equal to partition date."""
+    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
+
+    with (
+        patch("assets.ingestion.facebook_ads.fb_extract.extract", mock_extract),
+        patch("assets.ingestion.facebook_ads.gcs_load.load", return_value=FAKE_GCS_URI),
+        patch(
+            "assets.ingestion.facebook_ads.bq_load.load", return_value=FAKE_ROWS_LOADED
+        ),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.FacebookAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        materialize(
+            [facebook_ads_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "facebook_ads": facebook_ads_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    args = mock_extract.call_args[0]
+    assert args[1] == date.fromisoformat(PARTITION_KEY)
+    assert args[2] == date.fromisoformat(PARTITION_KEY)
+
+
+def test_materialize_succeeds(env_vars, facebook_ads_resource):
+    """Asset materializes without error using mocked dependencies."""
+    with (
+        patch(
+            "assets.ingestion.facebook_ads.fb_extract.extract",
+            return_value=SAMPLE_TABLE,
+        ),
+        patch("assets.ingestion.facebook_ads.gcs_load.load", return_value=FAKE_GCS_URI),
+        patch(
+            "assets.ingestion.facebook_ads.bq_load.load", return_value=FAKE_ROWS_LOADED
+        ),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.FacebookAdsResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = materialize(
+            [facebook_ads_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "facebook_ads": facebook_ads_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    assert result.success

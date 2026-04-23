@@ -9,13 +9,6 @@ from google.cloud import secretmanager
 _state: dict[str, secretmanager.SecretManagerServiceClient] = {}
 
 
-def _get_client() -> secretmanager.SecretManagerServiceClient:
-    """Returns a shared Secret Manager client, created on first use."""
-    if "client" not in _state:
-        _state["client"] = secretmanager.SecretManagerServiceClient()
-    return _state["client"]
-
-
 @functools.cache
 def get_secret(name: str, project: str) -> str:
     """Retrieves a secret from GCP Secret Manager.
@@ -43,3 +36,10 @@ def get_secret(name: str, project: str) -> str:
             f"Secret '{name}' not found in Secret Manager "
             f"and no environment variable fallback exists."
         ) from e
+
+
+def _get_client() -> secretmanager.SecretManagerServiceClient:
+    """Returns a shared Secret Manager client, created on first use."""
+    if "client" not in _state:
+        _state["client"] = secretmanager.SecretManagerServiceClient()
+    return _state["client"]

@@ -93,21 +93,6 @@ def extract(client: AdAccount, start_date: date, end_date: date) -> pa.Table:
     return table
 
 
-def _to_raw(row: dict) -> Raw:
-    """Converts a Facebook Ads API row dict into a Raw instance."""
-    return Raw(
-        date_start=row["date_start"],
-        campaign_id=row["campaign_id"],
-        campaign_name=row["campaign_name"],
-        impressions=row["impressions"],
-        clicks=row["clicks"],
-        spend=row["spend"],
-        reach=row["reach"],
-        frequency=row["frequency"],
-        actions=row.get("actions", []),
-    )
-
-
 def fetch(client: AdAccount, start_date: date, end_date: date) -> list[Raw]:
     """Fetches raw campaign insights from the Facebook Ads API."""
     params = {
@@ -121,6 +106,21 @@ def fetch(client: AdAccount, start_date: date, end_date: date) -> list[Raw]:
     insights = client.get_insights(fields=INSIGHT_FIELDS, params=params)
     raw_rows = [_to_raw(dict(row)) for row in insights]
     return raw_rows
+
+
+def _to_raw(row: dict) -> Raw:
+    """Converts a Facebook Ads API row dict into a Raw instance."""
+    return Raw(
+        date_start=row["date_start"],
+        campaign_id=row["campaign_id"],
+        campaign_name=row["campaign_name"],
+        impressions=row["impressions"],
+        clicks=row["clicks"],
+        spend=row["spend"],
+        reach=row["reach"],
+        frequency=row["frequency"],
+        actions=row.get("actions", []),
+    )
 
 
 def parse(raw: Raw) -> Record:

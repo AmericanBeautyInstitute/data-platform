@@ -53,9 +53,9 @@ def google_analytics_resource():
     )
 
 
-def test_asset_name():
-    """Asset name is google_analytics_raw."""
-    assert google_analytics_raw.key.path[-1] == "google_analytics_raw"
+def test_asset_has_daily_partitions():
+    """Asset uses DailyPartitionsDefinition."""
+    assert isinstance(google_analytics_raw.partitions_def, DailyPartitionsDefinition)
 
 
 def test_asset_has_ingestion_group():
@@ -65,124 +65,9 @@ def test_asset_has_ingestion_group():
     )
 
 
-def test_asset_has_daily_partitions():
-    """Asset uses DailyPartitionsDefinition."""
-    assert isinstance(google_analytics_raw.partitions_def, DailyPartitionsDefinition)
-
-
-def test_report_config_has_date_dimension():
-    """REPORT_CONFIG includes date as a dimension."""
-    assert "date" in REPORT_CONFIG.dimension_names
-
-
-def test_report_config_has_sessions_metric():
-    """REPORT_CONFIG includes sessions as a metric."""
-    assert "sessions" in REPORT_CONFIG.metric_names
-
-
-def test_materialize_succeeds(env_vars, google_analytics_resource):
-    """Asset materializes without error using mocked dependencies."""
-    with (
-        patch(
-            "assets.ingestion.google_analytics.ga_extract.extract",
-            return_value=SAMPLE_TABLE,
-        ),
-        patch(
-            "assets.ingestion.google_analytics.gcs_load.load", return_value=FAKE_GCS_URI
-        ),
-        patch(
-            "assets.ingestion.google_analytics.bq_load.load",
-            return_value=FAKE_ROWS_LOADED,
-        ),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.GoogleAnalyticsResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        result = materialize(
-            [google_analytics_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "google_analytics": google_analytics_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    assert result.success
-
-
-def test_materialize_passes_date_range_to_extract(env_vars, google_analytics_resource):
-    """extract() is called with start_date and end_date equal to partition date."""
-    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
-
-    with (
-        patch("assets.ingestion.google_analytics.ga_extract.extract", mock_extract),
-        patch(
-            "assets.ingestion.google_analytics.gcs_load.load", return_value=FAKE_GCS_URI
-        ),
-        patch(
-            "assets.ingestion.google_analytics.bq_load.load",
-            return_value=FAKE_ROWS_LOADED,
-        ),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.GoogleAnalyticsResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        materialize(
-            [google_analytics_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "google_analytics": google_analytics_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    args = mock_extract.call_args[0]
-    assert args[2] == date.fromisoformat(PARTITION_KEY)
-    assert args[3] == date.fromisoformat(PARTITION_KEY)
-
-
-def test_materialize_passes_property_id_to_extract(env_vars, google_analytics_resource):
-    """extract() is called with the correct property_id from the resource."""
-    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
-
-    with (
-        patch("assets.ingestion.google_analytics.ga_extract.extract", mock_extract),
-        patch(
-            "assets.ingestion.google_analytics.gcs_load.load", return_value=FAKE_GCS_URI
-        ),
-        patch(
-            "assets.ingestion.google_analytics.bq_load.load",
-            return_value=FAKE_ROWS_LOADED,
-        ),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.GoogleAnalyticsResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        materialize(
-            [google_analytics_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "google_analytics": google_analytics_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    assert mock_extract.call_args[0][1] == FAKE_PROPERTY_ID
+def test_asset_name():
+    """Asset name is google_analytics_raw."""
+    assert google_analytics_raw.key.path[-1] == "google_analytics_raw"
 
 
 def test_materialize_gcs_source_is_table_name(env_vars, google_analytics_resource):
@@ -256,3 +141,118 @@ def test_materialize_output_metadata_keys(env_vars, google_analytics_resource):
     mat_event = result.get_asset_materialization_events()[0]
     metadata_keys = set(mat_event.materialization.metadata.keys())
     assert EXPECTED_METADATA_KEYS.issubset(metadata_keys)
+
+
+def test_materialize_passes_date_range_to_extract(env_vars, google_analytics_resource):
+    """extract() is called with start_date and end_date equal to partition date."""
+    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
+
+    with (
+        patch("assets.ingestion.google_analytics.ga_extract.extract", mock_extract),
+        patch(
+            "assets.ingestion.google_analytics.gcs_load.load", return_value=FAKE_GCS_URI
+        ),
+        patch(
+            "assets.ingestion.google_analytics.bq_load.load",
+            return_value=FAKE_ROWS_LOADED,
+        ),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAnalyticsResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        materialize(
+            [google_analytics_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    args = mock_extract.call_args[0]
+    assert args[2] == date.fromisoformat(PARTITION_KEY)
+    assert args[3] == date.fromisoformat(PARTITION_KEY)
+
+
+def test_materialize_passes_property_id_to_extract(env_vars, google_analytics_resource):
+    """extract() is called with the correct property_id from the resource."""
+    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
+
+    with (
+        patch("assets.ingestion.google_analytics.ga_extract.extract", mock_extract),
+        patch(
+            "assets.ingestion.google_analytics.gcs_load.load", return_value=FAKE_GCS_URI
+        ),
+        patch(
+            "assets.ingestion.google_analytics.bq_load.load",
+            return_value=FAKE_ROWS_LOADED,
+        ),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAnalyticsResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        materialize(
+            [google_analytics_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    assert mock_extract.call_args[0][1] == FAKE_PROPERTY_ID
+
+
+def test_materialize_succeeds(env_vars, google_analytics_resource):
+    """Asset materializes without error using mocked dependencies."""
+    with (
+        patch(
+            "assets.ingestion.google_analytics.ga_extract.extract",
+            return_value=SAMPLE_TABLE,
+        ),
+        patch(
+            "assets.ingestion.google_analytics.gcs_load.load", return_value=FAKE_GCS_URI
+        ),
+        patch(
+            "assets.ingestion.google_analytics.bq_load.load",
+            return_value=FAKE_ROWS_LOADED,
+        ),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.GoogleAnalyticsResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = materialize(
+            [google_analytics_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "google_analytics": google_analytics_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    assert result.success
+
+
+def test_report_config_has_date_dimension():
+    """REPORT_CONFIG includes date as a dimension."""
+    assert "date" in REPORT_CONFIG.dimension_names
+
+
+def test_report_config_has_sessions_metric():
+    """REPORT_CONFIG includes sessions as a metric."""
+    assert "sessions" in REPORT_CONFIG.metric_names

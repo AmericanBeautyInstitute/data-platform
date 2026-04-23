@@ -81,17 +81,6 @@ def records(raw_rows, config):
     return [parse(r, config) for r in raw_rows]
 
 
-def test_build_request_sets_property():
-    """Property ID is prefixed with 'properties/'."""
-    cfg = ReportConfig(
-        dimension_names=["date", "country"],
-        metric_names=["sessions", "pageviews"],
-    )
-    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, cfg)
-
-    assert request.property == f"properties/{PROPERTY_ID}"
-
-
 def test_build_request_sets_date_range():
     """Date range is set correctly."""
     cfg = ReportConfig(
@@ -118,40 +107,15 @@ def test_build_request_sets_metrics(config):
     assert [m.name for m in request.metrics] == config.metric_names
 
 
-def test_parse_response_returns_raw_list(mock_client, config):
-    """Returns a list of Raw instances."""
-    result = _parse_response(mock_client.run_report.return_value, config)
+def test_build_request_sets_property():
+    """Property ID is prefixed with 'properties/'."""
+    cfg = ReportConfig(
+        dimension_names=["date", "country"],
+        metric_names=["sessions", "pageviews"],
+    )
+    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, cfg)
 
-    assert all(isinstance(r, Raw) for r in result)
-
-
-def test_parse_response_row_count(mock_client, config):
-    """Returns one Raw per response row."""
-    result = _parse_response(mock_client.run_report.return_value, config)
-
-    assert len(result) == EXPECTED_ROW_COUNT
-
-
-def test_parse_response_extracts_date(mock_client, config):
-    """Date extracted correctly from dimension values."""
-    result = _parse_response(mock_client.run_report.return_value, config)
-
-    assert result[0].date == "20240101"
-    assert result[1].date == "20240102"
-
-
-def test_extract_returns_pyarrow_table(mock_client, config):
-    """Returns a pa.Table instance."""
-    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
-
-    assert isinstance(result, pa.Table)
-
-
-def test_extract_row_count(mock_client, config):
-    """Table has correct number of rows."""
-    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    assert request.property == f"properties/{PROPERTY_ID}"
 
 
 def test_extract_column_names(mock_client, config):
@@ -175,11 +139,18 @@ def test_extract_composes_fetch_parse_to_table(mock_client, config):
     assert result.equals(expected)
 
 
-def test_fetch_returns_list_of_raw(mock_client, config):
-    """Returns a list of Raw instances."""
-    result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+def test_extract_returns_pyarrow_table(mock_client, config):
+    """Returns a pa.Table instance."""
+    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
 
-    assert all(isinstance(r, Raw) for r in result)
+    assert isinstance(result, pa.Table)
+
+
+def test_extract_row_count(mock_client, config):
+    """Table has correct number of rows."""
+    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+
+    assert result.num_rows == EXPECTED_ROW_COUNT
 
 
 def test_fetch_calls_api(mock_client, config):
@@ -189,18 +160,18 @@ def test_fetch_calls_api(mock_client, config):
     mock_client.run_report.assert_called_once()
 
 
+def test_fetch_returns_list_of_raw(mock_client, config):
+    """Returns a list of Raw instances."""
+    result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+
+    assert all(isinstance(r, Raw) for r in result)
+
+
 def test_fetch_row_count(mock_client, config):
     """Returns correct number of rows."""
     result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
 
     assert len(result) == EXPECTED_ROW_COUNT
-
-
-def test_parse_returns_record(raw_rows, config):
-    """Returns a Record instance."""
-    result = parse(raw_rows[0], config)
-
-    assert isinstance(result, Record)
 
 
 def test_parse_date_converted_to_date_type(raw_rows, config):
@@ -232,55 +203,33 @@ def test_parse_record_is_immutable(raw_rows, config):
         result.date = date(2025, 1, 1)
 
 
-def test_to_table_returns_pyarrow_table(records, config):
-    """Returns a pa.Table instance."""
-    result = to_table(records, config)
+def test_parse_response_extracts_date(mock_client, config):
+    """Date extracted correctly from dimension values."""
+    result = _parse_response(mock_client.run_report.return_value, config)
 
-    assert isinstance(result, pa.Table)
-
-
-def test_to_table_row_count(records, config):
-    """Table has one row per record."""
-    result = to_table(records, config)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    assert result[0].date == "20240101"
+    assert result[1].date == "20240102"
 
 
-def test_to_table_column_count(records, config):
-    """Table has correct number of columns."""
-    result = to_table(records, config)
+def test_parse_response_returns_raw_list(mock_client, config):
+    """Returns a list of Raw instances."""
+    result = _parse_response(mock_client.run_report.return_value, config)
 
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_to_table_contains_date_column(records, config):
-    """Table contains a date column."""
-    result = to_table(records, config)
-
-    assert "date" in result.column_names
+    assert all(isinstance(r, Raw) for r in result)
 
 
-def test_to_table_date_values_correct(records, config):
-    """Date column contains correct ISO format values."""
-    result = to_table(records, config)
+def test_parse_response_row_count(mock_client, config):
+    """Returns one Raw per response row."""
+    result = _parse_response(mock_client.run_report.return_value, config)
 
-    assert result.column("date").to_pylist() == ["2024-01-01", "2024-01-02"]
-
-
-def test_to_table_metric_values_correct(records, config):
-    """Metric columns contain correct values."""
-    result = to_table(records, config)
-
-    assert result.column("sessions").to_pylist() == ["100", "200"]
-    assert result.column("pageviews").to_pylist() == ["500", "700"]
+    assert len(result) == EXPECTED_ROW_COUNT
 
 
-def test_to_table_empty_records_returns_empty_table(config):
-    """Empty records list returns empty table."""
-    result = to_table([], config)
+def test_parse_returns_record(raw_rows, config):
+    """Returns a Record instance."""
+    result = parse(raw_rows[0], config)
 
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
+    assert isinstance(result, Record)
 
 
 def test_raw_is_immutable():
@@ -312,3 +261,54 @@ def test_record_date_validator_parses_yyyymmdd_string():
     )
 
     assert record.date == date(2024, 1, 15)
+
+
+def test_to_table_column_count(records, config):
+    """Table has correct number of columns."""
+    result = to_table(records, config)
+
+    assert result.num_columns == EXPECTED_COLUMN_COUNT
+
+
+def test_to_table_contains_date_column(records, config):
+    """Table contains a date column."""
+    result = to_table(records, config)
+
+    assert "date" in result.column_names
+
+
+def test_to_table_date_values_correct(records, config):
+    """Date column contains correct ISO format values."""
+    result = to_table(records, config)
+
+    assert result.column("date").to_pylist() == ["2024-01-01", "2024-01-02"]
+
+
+def test_to_table_empty_records_returns_empty_table(config):
+    """Empty records list returns empty table."""
+    result = to_table([], config)
+
+    assert isinstance(result, pa.Table)
+    assert result.num_rows == 0
+
+
+def test_to_table_metric_values_correct(records, config):
+    """Metric columns contain correct values."""
+    result = to_table(records, config)
+
+    assert result.column("sessions").to_pylist() == ["100", "200"]
+    assert result.column("pageviews").to_pylist() == ["500", "700"]
+
+
+def test_to_table_returns_pyarrow_table(records, config):
+    """Returns a pa.Table instance."""
+    result = to_table(records, config)
+
+    assert isinstance(result, pa.Table)
+
+
+def test_to_table_row_count(records, config):
+    """Table has one row per record."""
+    result = to_table(records, config)
+
+    assert result.num_rows == EXPECTED_ROW_COUNT
