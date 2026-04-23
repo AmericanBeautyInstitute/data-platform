@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from dagster import DagsterGraphQLClient
+from dagster_graphql import DagsterGraphQLClient
 from fastapi import Depends, Header, HTTPException
 
 from api.config import Settings, get_settings
