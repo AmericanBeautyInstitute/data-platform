@@ -82,6 +82,33 @@ def extract(client: PayPalClient, start_date: date, end_date: date) -> pa.Table:
     return table
 
 
+def fetch(client: PayPalClient, start_date: date, end_date: date) -> list[Raw]:
+    """Fetches all transactions for the given date range from PayPal API."""
+    raw_rows: list[Raw] = []
+    page = 1
+
+    while True:
+        response = client.get(
+            "/v1/reporting/transactions",
+            params={
+                "start_date": f"{start_date.isoformat()}T00:00:00-0000",
+                "end_date": f"{end_date.isoformat()}T23:59:59-0000",
+                "fields": "all",
+                "page_size": PAGE_SIZE,
+                "page": page,
+            },
+        )
+        transactions = response.get("transaction_details", [])
+        raw_rows.extend(_parse_transaction(t) for t in transactions)
+
+        total_pages = response.get("total_pages", 1)
+        if page >= total_pages:
+            break
+        page += 1
+
+    return raw_rows
+
+
 def _parse_transaction(transaction: dict) -> Raw:
     """Converts a PayPal API transaction dict into a Raw instance."""
     info = transaction.get("transaction_info", {})
@@ -111,33 +138,6 @@ def _parse_transaction(transaction: dict) -> Raw:
         fee_amount=fee.get("value", "0"),
         net_amount=net.get("value", "0"),
     )
-
-
-def fetch(client: PayPalClient, start_date: date, end_date: date) -> list[Raw]:
-    """Fetches all transactions for the given date range from PayPal API."""
-    raw_rows: list[Raw] = []
-    page = 1
-
-    while True:
-        response = client.get(
-            "/v1/reporting/transactions",
-            params={
-                "start_date": f"{start_date.isoformat()}T00:00:00-0000",
-                "end_date": f"{end_date.isoformat()}T23:59:59-0000",
-                "fields": "all",
-                "page_size": PAGE_SIZE,
-                "page": page,
-            },
-        )
-        transactions = response.get("transaction_details", [])
-        raw_rows.extend(_parse_transaction(t) for t in transactions)
-
-        total_pages = response.get("total_pages", 1)
-        if page >= total_pages:
-            break
-        page += 1
-
-    return raw_rows
 
 
 def parse(raw: Raw) -> Record:

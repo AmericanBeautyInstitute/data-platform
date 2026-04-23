@@ -84,86 +84,6 @@ def mock_client():
     return client
 
 
-def test_flatten_row_flattens_nested_dict():
-    """Nested dict keys become dot-notation keys."""
-    result = _flatten_row(NESTED_DICT_1)
-
-    assert result == FLAT_DICT_1
-
-
-def test_flatten_row_preserves_top_level_keys():
-    """Top-level non-dict values are preserved as-is."""
-    input_dict = {"customer_id": "123", "segments": {"date": "2024-01-15"}}
-    result = _flatten_row(input_dict)
-
-    assert result["customer_id"] == "123"
-    assert result["segments.date"] == "2024-01-15"
-
-
-def test_flatten_row_empty_dict():
-    """Empty dict returns empty dict."""
-    result = _flatten_row({})
-
-    assert result == {}
-
-
-def test_flatten_row_raises_on_nested_non_scalar():
-    """Nested dict value raises ValueError."""
-    nested = {"metrics": {"nested_field": {"inner": "value"}}}
-
-    with pytest.raises(ValueError, match="Expected scalar value"):
-        _flatten_row(nested)
-
-
-def test_to_raw_returns_raw_instance():
-    """Returns a Raw instance."""
-    result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)
-
-    assert isinstance(result, Raw)
-
-
-def test_to_raw_maps_fields_correctly():
-    """All fields mapped correctly from flattened dict."""
-    result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)
-
-    assert result.date == "2024-01-15"
-    assert result.clicks == "10"
-    assert result.impressions == "100"
-    assert result.cost_micros == "1500000"
-    assert result.conversions == "2.0"
-    assert result.customer_id == CUSTOMER_ID
-
-
-def test_to_raw_missing_key_raises():
-    """Missing expected key raises KeyError."""
-    incomplete_dict = {"segments.date": "2024-01-15"}
-
-    with pytest.raises(KeyError):
-        _to_raw(incomplete_dict, CUSTOMER_ID)
-
-
-def test_extract_returns_pyarrow_table(mock_client):
-    """Returns a pa.Table instance."""
-    with patch(
-        "extract.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
-
-    assert isinstance(result, pa.Table)
-
-
-def test_extract_row_count(mock_client):
-    """Table has correct number of rows."""
-    with patch(
-        "extract.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
-
-
 def test_extract_column_count(mock_client):
     """Table has correct number of columns."""
     with patch(
@@ -212,15 +132,26 @@ def test_extract_composes_fetch_parse_to_table(mock_client):
     assert result.equals(expected)
 
 
-def test_fetch_returns_list_of_raw(mock_client):
-    """Returns a list of Raw instances."""
+def test_extract_returns_pyarrow_table(mock_client):
+    """Returns a pa.Table instance."""
     with patch(
         "extract.google_ads.extract.MessageToDict",
         return_value=NESTED_DICT_1,
     ):
-        result = fetch(mock_client, CUSTOMER_ID, QUERY)
+        result = extract(mock_client, CUSTOMER_ID, QUERY)
 
-    assert all(isinstance(r, Raw) for r in result)
+    assert isinstance(result, pa.Table)
+
+
+def test_extract_row_count(mock_client):
+    """Table has correct number of rows."""
+    with patch(
+        "extract.google_ads.extract.MessageToDict",
+        return_value=NESTED_DICT_1,
+    ):
+        result = extract(mock_client, CUSTOMER_ID, QUERY)
+
+    assert result.num_rows == EXPECTED_ROW_COUNT
 
 
 def test_fetch_calls_google_ads_service(mock_client):
@@ -238,6 +169,17 @@ def test_fetch_calls_google_ads_service(mock_client):
     )
 
 
+def test_fetch_returns_list_of_raw(mock_client):
+    """Returns a list of Raw instances."""
+    with patch(
+        "extract.google_ads.extract.MessageToDict",
+        return_value=NESTED_DICT_1,
+    ):
+        result = fetch(mock_client, CUSTOMER_ID, QUERY)
+
+    assert all(isinstance(r, Raw) for r in result)
+
+
 def test_fetch_row_count(mock_client):
     """Returns correct number of rows."""
     with patch(
@@ -249,18 +191,35 @@ def test_fetch_row_count(mock_client):
     assert len(result) == EXPECTED_ROW_COUNT
 
 
-def test_parse_returns_record(raw_rows):
-    """Returns a Record instance."""
-    result = parse(raw_rows[0])
+def test_flatten_row_empty_dict():
+    """Empty dict returns empty dict."""
+    result = _flatten_row({})
 
-    assert isinstance(result, Record)
+    assert result == {}
 
 
-def test_parse_date_converted_to_date_type(raw_rows):
-    """Date string is parsed to date object."""
-    result = parse(raw_rows[0])
+def test_flatten_row_flattens_nested_dict():
+    """Nested dict keys become dot-notation keys."""
+    result = _flatten_row(NESTED_DICT_1)
 
-    assert result.date == date(2024, 1, 15)
+    assert result == FLAT_DICT_1
+
+
+def test_flatten_row_preserves_top_level_keys():
+    """Top-level non-dict values are preserved as-is."""
+    input_dict = {"customer_id": "123", "segments": {"date": "2024-01-15"}}
+    result = _flatten_row(input_dict)
+
+    assert result["customer_id"] == "123"
+    assert result["segments.date"] == "2024-01-15"
+
+
+def test_flatten_row_raises_on_nested_non_scalar():
+    """Nested dict value raises ValueError."""
+    nested = {"metrics": {"nested_field": {"inner": "value"}}}
+
+    with pytest.raises(ValueError, match="Expected scalar value"):
+        _flatten_row(nested)
 
 
 def test_parse_clicks_converted_to_int(raw_rows):
@@ -271,12 +230,12 @@ def test_parse_clicks_converted_to_int(raw_rows):
     assert isinstance(result.clicks, int)
 
 
-def test_parse_impressions_converted_to_int(raw_rows):
-    """Impressions string is parsed to int."""
+def test_parse_conversions_converted_to_float(raw_rows):
+    """Conversions string is parsed to float."""
     result = parse(raw_rows[0])
 
-    assert result.impressions == EXPECTED_IMPRESSIONS
-    assert isinstance(result.impressions, int)
+    assert result.conversions == EXPECTED_CONVERSIONS
+    assert isinstance(result.conversions, float)
 
 
 def test_parse_cost_micros_converted_to_int(raw_rows):
@@ -287,19 +246,26 @@ def test_parse_cost_micros_converted_to_int(raw_rows):
     assert isinstance(result.cost_micros, int)
 
 
-def test_parse_conversions_converted_to_float(raw_rows):
-    """Conversions string is parsed to float."""
-    result = parse(raw_rows[0])
-
-    assert result.conversions == EXPECTED_CONVERSIONS
-    assert isinstance(result.conversions, float)
-
-
 def test_parse_customer_id_preserved(raw_rows):
     """Customer ID is preserved as string."""
     result = parse(raw_rows[0])
 
     assert result.customer_id == CUSTOMER_ID
+
+
+def test_parse_date_converted_to_date_type(raw_rows):
+    """Date string is parsed to date object."""
+    result = parse(raw_rows[0])
+
+    assert result.date == date(2024, 1, 15)
+
+
+def test_parse_impressions_converted_to_int(raw_rows):
+    """Impressions string is parsed to int."""
+    result = parse(raw_rows[0])
+
+    assert result.impressions == EXPECTED_IMPRESSIONS
+    assert isinstance(result.impressions, int)
 
 
 def test_parse_record_is_immutable(raw_rows):
@@ -310,54 +276,11 @@ def test_parse_record_is_immutable(raw_rows):
         result.clicks = 999
 
 
-def test_to_table_returns_pyarrow_table(records):
-    """Returns a pa.Table instance."""
-    result = to_table(records)
+def test_parse_returns_record(raw_rows):
+    """Returns a Record instance."""
+    result = parse(raw_rows[0])
 
-    assert isinstance(result, pa.Table)
-
-
-def test_to_table_row_count(records):
-    """Table has one row per record."""
-    result = to_table(records)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
-
-
-def test_to_table_column_count(records):
-    """Table has correct number of columns."""
-    result = to_table(records)
-
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_to_table_date_values_correct(records):
-    """Date column contains correct ISO format values."""
-    result = to_table(records)
-
-    assert result.column("date").to_pylist() == ["2024-01-15", "2024-01-16"]
-
-
-def test_to_table_clicks_values_correct(records):
-    """Clicks column contains correct integer values."""
-    result = to_table(records)
-
-    assert result.column("clicks").to_pylist() == [EXPECTED_CLICKS, 20]
-
-
-def test_to_table_cost_micros_values_correct(records):
-    """Cost micros column contains correct integer values."""
-    result = to_table(records)
-
-    assert result.column("cost_micros").to_pylist() == [EXPECTED_COST_MICROS, 3000000]
-
-
-def test_to_table_empty_records_returns_empty_table():
-    """Empty records list returns empty table."""
-    result = to_table([])
-
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
+    assert isinstance(result, Record)
 
 
 def test_raw_is_immutable():
@@ -381,6 +304,19 @@ def test_record_date_validator_accepts_date_object():
     assert record.date == existing_date
 
 
+def test_record_invalid_clicks_raises():
+    """Non-integer clicks raises ValidationError."""
+    with pytest.raises(ValidationError):
+        Record(
+            date="2024-01-15",  # ty: ignore[invalid-argument-type]
+            clicks="not-an-int",  # ty: ignore[invalid-argument-type]
+            impressions=100,
+            cost_micros=1500000,
+            conversions=2.0,
+            customer_id=CUSTOMER_ID,
+        )
+
+
 def test_record_invalid_date_raises():
     """Invalid date string raises ValidationError."""
     with pytest.raises(ValidationError):
@@ -394,14 +330,78 @@ def test_record_invalid_date_raises():
         )
 
 
-def test_record_invalid_clicks_raises():
-    """Non-integer clicks raises ValidationError."""
-    with pytest.raises(ValidationError):
-        Record(
-            date="2024-01-15",  # ty: ignore[invalid-argument-type]
-            clicks="not-an-int",  # ty: ignore[invalid-argument-type]
-            impressions=100,
-            cost_micros=1500000,
-            conversions=2.0,
-            customer_id=CUSTOMER_ID,
-        )
+def test_to_raw_maps_fields_correctly():
+    """All fields mapped correctly from flattened dict."""
+    result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)
+
+    assert result.date == "2024-01-15"
+    assert result.clicks == "10"
+    assert result.impressions == "100"
+    assert result.cost_micros == "1500000"
+    assert result.conversions == "2.0"
+    assert result.customer_id == CUSTOMER_ID
+
+
+def test_to_raw_missing_key_raises():
+    """Missing expected key raises KeyError."""
+    incomplete_dict = {"segments.date": "2024-01-15"}
+
+    with pytest.raises(KeyError):
+        _to_raw(incomplete_dict, CUSTOMER_ID)
+
+
+def test_to_raw_returns_raw_instance():
+    """Returns a Raw instance."""
+    result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)
+
+    assert isinstance(result, Raw)
+
+
+def test_to_table_clicks_values_correct(records):
+    """Clicks column contains correct integer values."""
+    result = to_table(records)
+
+    assert result.column("clicks").to_pylist() == [EXPECTED_CLICKS, 20]
+
+
+def test_to_table_column_count(records):
+    """Table has correct number of columns."""
+    result = to_table(records)
+
+    assert result.num_columns == EXPECTED_COLUMN_COUNT
+
+
+def test_to_table_cost_micros_values_correct(records):
+    """Cost micros column contains correct integer values."""
+    result = to_table(records)
+
+    assert result.column("cost_micros").to_pylist() == [EXPECTED_COST_MICROS, 3000000]
+
+
+def test_to_table_date_values_correct(records):
+    """Date column contains correct ISO format values."""
+    result = to_table(records)
+
+    assert result.column("date").to_pylist() == ["2024-01-15", "2024-01-16"]
+
+
+def test_to_table_empty_records_returns_empty_table():
+    """Empty records list returns empty table."""
+    result = to_table([])
+
+    assert isinstance(result, pa.Table)
+    assert result.num_rows == 0
+
+
+def test_to_table_returns_pyarrow_table(records):
+    """Returns a pa.Table instance."""
+    result = to_table(records)
+
+    assert isinstance(result, pa.Table)
+
+
+def test_to_table_row_count(records):
+    """Table has one row per record."""
+    result = to_table(records)
+
+    assert result.num_rows == EXPECTED_ROW_COUNT

@@ -22,22 +22,18 @@ def clear_cache():
     config.secrets._state.clear()
 
 
-def test_returns_env_variable_when_set(monkeypatch):
-    """Environment variable takes precedence over Secret Manager."""
-    monkeypatch.setenv("MY_SECRET", "env_value")
+def test_cache_prevents_repeated_secret_manager_calls(monkeypatch):
+    """Second call with same args hits cache, not Secret Manager."""
+    monkeypatch.delenv("MY_SECRET", raising=False)
 
-    result = get_secret("MY_SECRET", "my-project")
+    mock_client = MagicMock()
+    mock_client.access_secret_version.return_value.payload.data = b"value"
 
-    assert result == "env_value"
-
-
-def test_env_variable_does_not_call_secret_manager(monkeypatch):
-    """Secret Manager is never called when env variable exists."""
-    monkeypatch.setenv("MY_SECRET", "env_value")
-
-    with patch("config.secrets._get_client") as mock:
+    with patch("config.secrets._get_client", return_value=mock_client):
         get_secret("MY_SECRET", "my-project")
-        mock.assert_not_called()
+        get_secret("MY_SECRET", "my-project")
+
+    assert mock_client.access_secret_version.call_count == EXPECTED_SINGLE_CALL_COUNT
 
 
 def test_calls_secret_manager_when_no_env_variable(monkeypatch):
@@ -51,35 +47,6 @@ def test_calls_secret_manager_when_no_env_variable(monkeypatch):
         result = get_secret("MY_SECRET", "my-project")
 
     assert result == "secret_value"
-
-
-def test_secret_manager_called_with_correct_path(monkeypatch):
-    """Secret Manager is called with the correct resource path."""
-    monkeypatch.delenv("MY_SECRET", raising=False)
-
-    mock_client = MagicMock()
-    mock_client.access_secret_version.return_value.payload.data = b"value"
-
-    with patch("config.secrets._get_client", return_value=mock_client):
-        get_secret("MY_SECRET", "my-project")
-
-    mock_client.access_secret_version.assert_called_once_with(
-        name="projects/my-project/secrets/MY_SECRET/versions/latest"
-    )
-
-
-def test_cache_prevents_repeated_secret_manager_calls(monkeypatch):
-    """Second call with same args hits cache, not Secret Manager."""
-    monkeypatch.delenv("MY_SECRET", raising=False)
-
-    mock_client = MagicMock()
-    mock_client.access_secret_version.return_value.payload.data = b"value"
-
-    with patch("config.secrets._get_client", return_value=mock_client):
-        get_secret("MY_SECRET", "my-project")
-        get_secret("MY_SECRET", "my-project")
-
-    assert mock_client.access_secret_version.call_count == EXPECTED_SINGLE_CALL_COUNT
 
 
 def test_different_secrets_each_call_secret_manager(monkeypatch):
@@ -97,18 +64,13 @@ def test_different_secrets_each_call_secret_manager(monkeypatch):
     assert mock_client.access_secret_version.call_count == EXPECTED_DOUBLE_CALL_COUNT
 
 
-def test_raises_value_error_when_secret_not_found(monkeypatch):
-    """Raises ValueError with clear message when secret is missing."""
-    monkeypatch.delenv("MY_SECRET", raising=False)
+def test_env_variable_does_not_call_secret_manager(monkeypatch):
+    """Secret Manager is never called when env variable exists."""
+    monkeypatch.setenv("MY_SECRET", "env_value")
 
-    mock_client = MagicMock()
-    mock_client.access_secret_version.side_effect = NotFound("Not found")
-
-    with (
-        patch("config.secrets._get_client", return_value=mock_client),
-        pytest.raises(ValueError, match="MY_SECRET"),
-    ):
+    with patch("config.secrets._get_client") as mock:
         get_secret("MY_SECRET", "my-project")
+        mock.assert_not_called()
 
 
 def test_raises_value_error_preserves_original_cause(monkeypatch):
@@ -126,3 +88,41 @@ def test_raises_value_error_preserves_original_cause(monkeypatch):
         get_secret("MY_SECRET", "my-project")
 
     assert exc_info.value.__cause__ is original_error
+
+
+def test_raises_value_error_when_secret_not_found(monkeypatch):
+    """Raises ValueError with clear message when secret is missing."""
+    monkeypatch.delenv("MY_SECRET", raising=False)
+
+    mock_client = MagicMock()
+    mock_client.access_secret_version.side_effect = NotFound("Not found")
+
+    with (
+        patch("config.secrets._get_client", return_value=mock_client),
+        pytest.raises(ValueError, match="MY_SECRET"),
+    ):
+        get_secret("MY_SECRET", "my-project")
+
+
+def test_returns_env_variable_when_set(monkeypatch):
+    """Environment variable takes precedence over Secret Manager."""
+    monkeypatch.setenv("MY_SECRET", "env_value")
+
+    result = get_secret("MY_SECRET", "my-project")
+
+    assert result == "env_value"
+
+
+def test_secret_manager_called_with_correct_path(monkeypatch):
+    """Secret Manager is called with the correct resource path."""
+    monkeypatch.delenv("MY_SECRET", raising=False)
+
+    mock_client = MagicMock()
+    mock_client.access_secret_version.return_value.payload.data = b"value"
+
+    with patch("config.secrets._get_client", return_value=mock_client):
+        get_secret("MY_SECRET", "my-project")
+
+    mock_client.access_secret_version.assert_called_once_with(
+        name="projects/my-project/secrets/MY_SECRET/versions/latest"
+    )

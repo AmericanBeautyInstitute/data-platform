@@ -58,9 +58,9 @@ def stripe_resource():
     return StripeResource(secret_key=FAKE_SECRET_KEY)
 
 
-def test_asset_name():
-    """Asset name is stripe_charges_raw."""
-    assert stripe_charges_raw.key.path[-1] == "stripe_charges_raw"
+def test_asset_has_daily_partitions():
+    """Asset uses DailyPartitionsDefinition."""
+    assert isinstance(stripe_charges_raw.partitions_def, DailyPartitionsDefinition)
 
 
 def test_asset_has_ingestion_group():
@@ -68,69 +68,9 @@ def test_asset_has_ingestion_group():
     assert stripe_charges_raw.group_names_by_key[stripe_charges_raw.key] == "ingestion"
 
 
-def test_asset_has_daily_partitions():
-    """Asset uses DailyPartitionsDefinition."""
-    assert isinstance(stripe_charges_raw.partitions_def, DailyPartitionsDefinition)
-
-
-def test_materialize_succeeds(env_vars, stripe_resource):
-    """Asset materializes without error using mocked dependencies."""
-    with (
-        patch(
-            "assets.ingestion.stripe.stripe_extract.extract", return_value=SAMPLE_TABLE
-        ),
-        patch("assets.ingestion.stripe.gcs_load.load", return_value=FAKE_GCS_URI),
-        patch("assets.ingestion.stripe.bq_load.load", return_value=FAKE_ROWS_LOADED),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.StripeResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        result = materialize(
-            [stripe_charges_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "stripe": stripe_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    assert result.success
-
-
-def test_materialize_passes_date_range_to_extract(env_vars, stripe_resource):
-    """extract() is called with start and end date equal to partition date."""
-    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
-
-    with (
-        patch("assets.ingestion.stripe.stripe_extract.extract", mock_extract),
-        patch("assets.ingestion.stripe.gcs_load.load", return_value=FAKE_GCS_URI),
-        patch("assets.ingestion.stripe.bq_load.load", return_value=FAKE_ROWS_LOADED),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.StripeResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        materialize(
-            [stripe_charges_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "stripe": stripe_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    args = mock_extract.call_args[0]
-    assert args[1] == date.fromisoformat(PARTITION_KEY)
-    assert args[2] == date.fromisoformat(PARTITION_KEY)
+def test_asset_name():
+    """Asset name is stripe_charges_raw."""
+    assert stripe_charges_raw.key.path[-1] == "stripe_charges_raw"
 
 
 def test_materialize_gcs_source_is_table_name(env_vars, stripe_resource):
@@ -194,3 +134,63 @@ def test_materialize_output_metadata_keys(env_vars, stripe_resource):
     mat_event = result.get_asset_materialization_events()[0]
     metadata_keys = set(mat_event.materialization.metadata.keys())
     assert EXPECTED_METADATA_KEYS.issubset(metadata_keys)
+
+
+def test_materialize_passes_date_range_to_extract(env_vars, stripe_resource):
+    """extract() is called with start and end date equal to partition date."""
+    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
+
+    with (
+        patch("assets.ingestion.stripe.stripe_extract.extract", mock_extract),
+        patch("assets.ingestion.stripe.gcs_load.load", return_value=FAKE_GCS_URI),
+        patch("assets.ingestion.stripe.bq_load.load", return_value=FAKE_ROWS_LOADED),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.StripeResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        materialize(
+            [stripe_charges_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "stripe": stripe_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    args = mock_extract.call_args[0]
+    assert args[1] == date.fromisoformat(PARTITION_KEY)
+    assert args[2] == date.fromisoformat(PARTITION_KEY)
+
+
+def test_materialize_succeeds(env_vars, stripe_resource):
+    """Asset materializes without error using mocked dependencies."""
+    with (
+        patch(
+            "assets.ingestion.stripe.stripe_extract.extract", return_value=SAMPLE_TABLE
+        ),
+        patch("assets.ingestion.stripe.gcs_load.load", return_value=FAKE_GCS_URI),
+        patch("assets.ingestion.stripe.bq_load.load", return_value=FAKE_ROWS_LOADED),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.StripeResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = materialize(
+            [stripe_charges_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "stripe": stripe_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    assert result.success

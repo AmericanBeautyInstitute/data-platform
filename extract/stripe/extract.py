@@ -99,6 +99,33 @@ def extract(client: StripeClient, start_date: date, end_date: date) -> pa.Table:
     return table
 
 
+def fetch(client: StripeClient, start_date: date, end_date: date) -> list[Raw]:
+    """Fetches all charges for the given date range from Stripe API."""
+    raw_rows: list[Raw] = []
+    start_ts = _date_to_timestamp(start_date)
+    end_ts = _date_to_timestamp(end_date, end_of_day=True)
+    has_more = True
+    starting_after = None
+
+    while has_more:
+        params: dict = {
+            "created": {"gte": start_ts, "lte": end_ts},
+            "limit": PAGE_SIZE,
+            "expand": ["data.balance_transaction"],
+        }
+        if starting_after:
+            params["starting_after"] = starting_after
+
+        response = client.charges.list(params=params)
+        charges = response.data
+        raw_rows.extend(_to_raw(dict(c)) for c in charges)
+        has_more = response.has_more
+        if has_more and charges:
+            starting_after = charges[-1].id
+
+    return raw_rows
+
+
 def _date_to_timestamp(d: date, end_of_day: bool = False) -> int:
     """Converts a date to a UTC Unix timestamp."""
     dt = datetime(d.year, d.month, d.day, tzinfo=UTC)
@@ -128,33 +155,6 @@ def _to_raw(charge: dict) -> Raw:
         customer_name=billing.get("name") or "",
         payment_intent_id=charge.get("payment_intent") or "",
     )
-
-
-def fetch(client: StripeClient, start_date: date, end_date: date) -> list[Raw]:
-    """Fetches all charges for the given date range from Stripe API."""
-    raw_rows: list[Raw] = []
-    start_ts = _date_to_timestamp(start_date)
-    end_ts = _date_to_timestamp(end_date, end_of_day=True)
-    has_more = True
-    starting_after = None
-
-    while has_more:
-        params: dict = {
-            "created": {"gte": start_ts, "lte": end_ts},
-            "limit": PAGE_SIZE,
-            "expand": ["data.balance_transaction"],
-        }
-        if starting_after:
-            params["starting_after"] = starting_after
-
-        response = client.charges.list(params=params)
-        charges = response.data
-        raw_rows.extend(_to_raw(dict(c)) for c in charges)
-        has_more = response.has_more
-        if has_more and charges:
-            starting_after = charges[-1].id
-
-    return raw_rows
 
 
 def parse(raw: Raw) -> Record:

@@ -126,89 +126,41 @@ def mock_client():
     return client
 
 
-def test_date_to_timestamp_start_of_day():
-    """Start of day timestamp is midnight UTC."""
-    result = _date_to_timestamp(date(2024, 1, 15))
-    assert result == UNIX_TIMESTAMP_2024_01_15
-
-
 def test_date_to_timestamp_end_of_day():
     """End of day timestamp is 23:59:59 UTC."""
     result = _date_to_timestamp(date(2024, 1, 15), end_of_day=True)
     assert result == UNIX_TIMESTAMP_2024_01_15 + 86399
 
 
-def test_to_raw_returns_raw_instance():
-    """Returns a Raw instance from an API charge dict."""
-    result = _to_raw(API_CHARGE_1)
-    assert isinstance(result, Raw)
+def test_date_to_timestamp_start_of_day():
+    """Start of day timestamp is midnight UTC."""
+    result = _date_to_timestamp(date(2024, 1, 15))
+    assert result == UNIX_TIMESTAMP_2024_01_15
 
 
-def test_to_raw_maps_charge_id():
-    """Charge ID mapped correctly."""
-    result = _to_raw(API_CHARGE_1)
-    assert result.charge_id == CHARGE_ID
+def test_extract_composes_fetch_parse_to_table(raw_rows):
+    """Result matches manually composing fetch, parse, and to_table."""
+    parsed = [parse(r) for r in raw_rows]
+    expected = to_table(parsed)
+
+    with patch("extract.stripe.extract.fetch", return_value=raw_rows):
+        result = extract(MagicMock(), START_DATE, END_DATE)
+
+    assert result.equals(expected)
 
 
-def test_to_raw_maps_amount():
-    """Amount in cents mapped correctly."""
-    result = _to_raw(API_CHARGE_1)
-    assert result.amount == EXPECTED_AMOUNT_CENTS
+def test_extract_returns_pyarrow_table(raw_rows):
+    """Returns a pa.Table instance."""
+    with patch("extract.stripe.extract.fetch", return_value=raw_rows):
+        result = extract(MagicMock(), START_DATE, END_DATE)
+    assert isinstance(result, pa.Table)
 
 
-def test_to_raw_maps_fee_from_balance_transaction():
-    """Fee extracted from balance_transaction correctly."""
-    result = _to_raw(API_CHARGE_1)
-    assert result.fee == EXPECTED_FEE_CENTS
-
-
-def test_to_raw_maps_customer_email_from_billing_details():
-    """Customer email extracted from billing_details."""
-    result = _to_raw(API_CHARGE_1)
-    assert result.customer_email == EXPECTED_EMAIL
-
-
-def test_to_raw_missing_required_field_raises():
-    """Missing required fields raise KeyError."""
-    with pytest.raises(KeyError):
-        _to_raw({})
-
-
-def test_to_raw_optional_fields_default():
-    """Genuinely optional fields default when absent or null."""
-    minimal_charge = {
-        "id": CHARGE_ID,
-        "created": UNIX_TIMESTAMP_2024_01_15,
-        "amount": 15000,
-        "amount_captured": 15000,
-        "currency": "usd",
-        "status": EXPECTED_STATUS,
-        "billing_details": {"email": None, "name": None},
-    }
-    result = _to_raw(minimal_charge)
-    assert result.fee == 0
-    assert result.net == 0
-    assert result.description == ""
-    assert result.customer_email == ""
-    assert result.customer_name == ""
-    assert result.payment_intent_id == ""
-
-
-def test_to_raw_handles_null_balance_transaction():
-    """None balance_transaction defaults fee and net to zero."""
-    charge = {**API_CHARGE_1, "balance_transaction": None}
-    result = _to_raw(charge)
-    assert result.fee == 0
-    assert result.net == 0
-
-
-def test_fetch_returns_list_of_raw(mock_client):
-    """Returns a list of Raw instances."""
-    with patch(
-        "extract.stripe.extract._to_raw", side_effect=lambda c: _to_raw(dict(c))
-    ):
-        result = fetch(mock_client, START_DATE, END_DATE)
-    assert all(isinstance(r, Raw) for r in result)
+def test_extract_row_count(raw_rows):
+    """Table has correct number of rows."""
+    with patch("extract.stripe.extract.fetch", return_value=raw_rows):
+        result = extract(MagicMock(), START_DATE, END_DATE)
+    assert result.num_rows == EXPECTED_ROW_COUNT
 
 
 def test_fetch_calls_charges_list(mock_client):
@@ -230,6 +182,20 @@ def test_fetch_calls_charges_list(mock_client):
     )
     assert "created" in call_params
     assert call_params["created"]["gte"] == UNIX_TIMESTAMP_2024_01_15
+
+
+def test_fetch_empty_response_returns_empty_list():
+    """Empty charges list returns empty list."""
+    client = MagicMock()
+    response = MagicMock()
+    response.data = []
+    response.has_more = False
+    client.charges.list.return_value = response
+
+    with patch("extract.stripe.extract._to_raw", side_effect=lambda c: RAW_ROW_1):
+        result = fetch(client, START_DATE, END_DATE)
+
+    assert result == []
 
 
 def test_fetch_paginates_multiple_pages():
@@ -257,30 +223,13 @@ def test_fetch_paginates_multiple_pages():
     assert client.charges.list.call_count == EXPECTED_ROW_COUNT
 
 
-def test_fetch_empty_response_returns_empty_list():
-    """Empty charges list returns empty list."""
-    client = MagicMock()
-    response = MagicMock()
-    response.data = []
-    response.has_more = False
-    client.charges.list.return_value = response
-
-    with patch("extract.stripe.extract._to_raw", side_effect=lambda c: RAW_ROW_1):
-        result = fetch(client, START_DATE, END_DATE)
-
-    assert result == []
-
-
-def test_parse_returns_record(raw_rows):
-    """Returns a Record instance."""
-    result = parse(raw_rows[0])
-    assert isinstance(result, Record)
-
-
-def test_parse_timestamp_converted_to_date(raw_rows):
-    """Unix timestamp is converted to date object."""
-    result = parse(raw_rows[0])
-    assert result.charge_date == date(2024, 1, 15)
+def test_fetch_returns_list_of_raw(mock_client):
+    """Returns a list of Raw instances."""
+    with patch(
+        "extract.stripe.extract._to_raw", side_effect=lambda c: _to_raw(dict(c))
+    ):
+        result = fetch(mock_client, START_DATE, END_DATE)
+    assert all(isinstance(r, Raw) for r in result)
 
 
 def test_parse_cents_converted_to_dollars(raw_rows):
@@ -311,85 +260,16 @@ def test_parse_record_is_immutable(raw_rows):
         result.charge_id = "NEW_ID"
 
 
-def test_to_table_returns_pyarrow_table(records):
-    """Returns a pa.Table instance."""
-    result = to_table(records)
-    assert isinstance(result, pa.Table)
+def test_parse_returns_record(raw_rows):
+    """Returns a Record instance."""
+    result = parse(raw_rows[0])
+    assert isinstance(result, Record)
 
 
-def test_to_table_row_count(records):
-    """Table has one row per record."""
-    result = to_table(records)
-    assert result.num_rows == EXPECTED_ROW_COUNT
-
-
-def test_to_table_column_count(records):
-    """Table has correct number of columns."""
-    result = to_table(records)
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_to_table_column_names(records):
-    """Table contains expected column names."""
-    result = to_table(records)
-    assert set(result.column_names) == {
-        "charge_id",
-        "charge_date",
-        "gross_amount_usd",
-        "amount_captured_usd",
-        "fee_usd",
-        "net_usd",
-        "currency",
-        "status",
-        "description",
-        "customer_email",
-        "customer_name",
-        "payment_intent_id",
-    }
-
-
-def test_to_table_date_values_correct(records):
-    """Date column contains correct ISO format values."""
-    result = to_table(records)
-    assert result.column("charge_date").to_pylist() == ["2024-01-15", "2024-01-15"]
-
-
-def test_to_table_gross_amount_values_correct(records):
-    """Gross amount column contains correct dollar values."""
-    result = to_table(records)
-    assert result.column("gross_amount_usd").to_pylist() == [EXPECTED_GROSS, 75.00]
-
-
-def test_to_table_empty_records_returns_empty_table():
-    """Empty records list returns empty table."""
-    result = to_table([])
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
-
-
-def test_extract_returns_pyarrow_table(raw_rows):
-    """Returns a pa.Table instance."""
-    with patch("extract.stripe.extract.fetch", return_value=raw_rows):
-        result = extract(MagicMock(), START_DATE, END_DATE)
-    assert isinstance(result, pa.Table)
-
-
-def test_extract_row_count(raw_rows):
-    """Table has correct number of rows."""
-    with patch("extract.stripe.extract.fetch", return_value=raw_rows):
-        result = extract(MagicMock(), START_DATE, END_DATE)
-    assert result.num_rows == EXPECTED_ROW_COUNT
-
-
-def test_extract_composes_fetch_parse_to_table(raw_rows):
-    """Result matches manually composing fetch, parse, and to_table."""
-    parsed = [parse(r) for r in raw_rows]
-    expected = to_table(parsed)
-
-    with patch("extract.stripe.extract.fetch", return_value=raw_rows):
-        result = extract(MagicMock(), START_DATE, END_DATE)
-
-    assert result.equals(expected)
+def test_parse_timestamp_converted_to_date(raw_rows):
+    """Unix timestamp is converted to date object."""
+    result = parse(raw_rows[0])
+    assert result.charge_date == date(2024, 1, 15)
 
 
 def test_raw_is_immutable():
@@ -435,3 +315,123 @@ def test_record_invalid_timestamp_raises():
             customer_name=EXPECTED_NAME,
             payment_intent_id=PAYMENT_INTENT_ID,
         )
+
+
+def test_to_raw_handles_null_balance_transaction():
+    """None balance_transaction defaults fee and net to zero."""
+    charge = {**API_CHARGE_1, "balance_transaction": None}
+    result = _to_raw(charge)
+    assert result.fee == 0
+    assert result.net == 0
+
+
+def test_to_raw_maps_amount():
+    """Amount in cents mapped correctly."""
+    result = _to_raw(API_CHARGE_1)
+    assert result.amount == EXPECTED_AMOUNT_CENTS
+
+
+def test_to_raw_maps_charge_id():
+    """Charge ID mapped correctly."""
+    result = _to_raw(API_CHARGE_1)
+    assert result.charge_id == CHARGE_ID
+
+
+def test_to_raw_maps_customer_email_from_billing_details():
+    """Customer email extracted from billing_details."""
+    result = _to_raw(API_CHARGE_1)
+    assert result.customer_email == EXPECTED_EMAIL
+
+
+def test_to_raw_maps_fee_from_balance_transaction():
+    """Fee extracted from balance_transaction correctly."""
+    result = _to_raw(API_CHARGE_1)
+    assert result.fee == EXPECTED_FEE_CENTS
+
+
+def test_to_raw_missing_required_field_raises():
+    """Missing required fields raise KeyError."""
+    with pytest.raises(KeyError):
+        _to_raw({})
+
+
+def test_to_raw_optional_fields_default():
+    """Genuinely optional fields default when absent or null."""
+    minimal_charge = {
+        "id": CHARGE_ID,
+        "created": UNIX_TIMESTAMP_2024_01_15,
+        "amount": 15000,
+        "amount_captured": 15000,
+        "currency": "usd",
+        "status": EXPECTED_STATUS,
+        "billing_details": {"email": None, "name": None},
+    }
+    result = _to_raw(minimal_charge)
+    assert result.fee == 0
+    assert result.net == 0
+    assert result.description == ""
+    assert result.customer_email == ""
+    assert result.customer_name == ""
+    assert result.payment_intent_id == ""
+
+
+def test_to_raw_returns_raw_instance():
+    """Returns a Raw instance from an API charge dict."""
+    result = _to_raw(API_CHARGE_1)
+    assert isinstance(result, Raw)
+
+
+def test_to_table_column_count(records):
+    """Table has correct number of columns."""
+    result = to_table(records)
+    assert result.num_columns == EXPECTED_COLUMN_COUNT
+
+
+def test_to_table_column_names(records):
+    """Table contains expected column names."""
+    result = to_table(records)
+    assert set(result.column_names) == {
+        "charge_id",
+        "charge_date",
+        "gross_amount_usd",
+        "amount_captured_usd",
+        "fee_usd",
+        "net_usd",
+        "currency",
+        "status",
+        "description",
+        "customer_email",
+        "customer_name",
+        "payment_intent_id",
+    }
+
+
+def test_to_table_date_values_correct(records):
+    """Date column contains correct ISO format values."""
+    result = to_table(records)
+    assert result.column("charge_date").to_pylist() == ["2024-01-15", "2024-01-15"]
+
+
+def test_to_table_empty_records_returns_empty_table():
+    """Empty records list returns empty table."""
+    result = to_table([])
+    assert isinstance(result, pa.Table)
+    assert result.num_rows == 0
+
+
+def test_to_table_gross_amount_values_correct(records):
+    """Gross amount column contains correct dollar values."""
+    result = to_table(records)
+    assert result.column("gross_amount_usd").to_pylist() == [EXPECTED_GROSS, 75.00]
+
+
+def test_to_table_returns_pyarrow_table(records):
+    """Returns a pa.Table instance."""
+    result = to_table(records)
+    assert isinstance(result, pa.Table)
+
+
+def test_to_table_row_count(records):
+    """Table has one row per record."""
+    result = to_table(records)
+    assert result.num_rows == EXPECTED_ROW_COUNT

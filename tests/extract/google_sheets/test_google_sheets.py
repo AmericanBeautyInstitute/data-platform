@@ -48,25 +48,39 @@ def records(raw):
     return parse(raw)
 
 
-def test_fetch_returns_raw_instance(mock_client):
-    """Returns a Raw instance."""
-    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+def test_extract_column_names_correct(mock_client):
+    """Table has correct column names."""
+    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
 
-    assert isinstance(result, Raw)
-
-
-def test_fetch_headers_extracted_correctly(mock_client):
-    """First row becomes headers."""
-    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.headers == HEADERS
+    assert result.column_names == HEADERS
 
 
-def test_fetch_rows_exclude_header(mock_client):
-    """Rows do not include the header row."""
-    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+def test_extract_composes_fetch_parse_to_table(mock_client):
+    """Result matches manually composing fetch, parse, and to_table."""
+    raw = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+    records = parse(raw)
+    expected = to_table(records)
 
-    assert result.rows == ROWS
+    mock_client.spreadsheets().values().get().execute.return_value = {
+        "values": [HEADERS, *ROWS]
+    }
+    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+
+    assert result.equals(expected)
+
+
+def test_extract_returns_pyarrow_table(mock_client):
+    """Returns a pa.Table instance."""
+    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+
+    assert isinstance(result, pa.Table)
+
+
+def test_extract_row_count_correct(mock_client):
+    """Table has correct number of rows."""
+    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+
+    assert result.num_rows == EXPECTED_ROW_COUNT
 
 
 def test_fetch_calls_api_with_correct_args(mock_client):
@@ -87,11 +101,34 @@ def test_fetch_empty_sheet_raises(mock_client):
         fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
 
 
-def test_parse_returns_list_of_records(raw):
-    """Returns a list of Record instances."""
+def test_fetch_headers_extracted_correctly(mock_client):
+    """First row becomes headers."""
+    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+
+    assert result.headers == HEADERS
+
+
+def test_fetch_returns_raw_instance(mock_client):
+    """Returns a Raw instance."""
+    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+
+    assert isinstance(result, Raw)
+
+
+def test_fetch_rows_exclude_header(mock_client):
+    """Rows do not include the header row."""
+    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+
+    assert result.rows == ROWS
+
+
+def test_parse_empty_rows_returns_empty_list():
+    """Empty rows produces empty list."""
+    raw = Raw(headers=HEADERS, rows=[])
+
     result = parse(raw)
 
-    assert all(isinstance(r, Record) for r in result)
+    assert result == []
 
 
 def test_parse_record_count_matches_rows(raw):
@@ -110,15 +147,6 @@ def test_parse_record_data_maps_headers_to_values(raw):
     assert result[2].data == {"name": "Relena", "age": "35", "city": "Paris"}
 
 
-def test_parse_empty_rows_returns_empty_list():
-    """Empty rows produces empty list."""
-    raw = Raw(headers=HEADERS, rows=[])
-
-    result = parse(raw)
-
-    assert result == []
-
-
 def test_parse_records_are_immutable(raw):
     """Record instances cannot be mutated."""
     result = parse(raw)
@@ -127,18 +155,11 @@ def test_parse_records_are_immutable(raw):
         result[0].data = {}
 
 
-def test_to_table_returns_pyarrow_table(records):
-    """Returns a pa.Table instance."""
-    result = to_table(records)
+def test_parse_returns_list_of_records(raw):
+    """Returns a list of Record instances."""
+    result = parse(raw)
 
-    assert isinstance(result, pa.Table)
-
-
-def test_to_table_row_count_matches_records(records):
-    """Table has one row per record."""
-    result = to_table(records)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    assert all(isinstance(r, Record) for r in result)
 
 
 def test_to_table_column_count_matches_headers(records):
@@ -172,36 +193,15 @@ def test_to_table_empty_records_returns_empty_table():
     assert result.num_rows == 0
 
 
-def test_extract_returns_pyarrow_table(mock_client):
+def test_to_table_returns_pyarrow_table(records):
     """Returns a pa.Table instance."""
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+    result = to_table(records)
 
     assert isinstance(result, pa.Table)
 
 
-def test_extract_row_count_correct(mock_client):
-    """Table has correct number of rows."""
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+def test_to_table_row_count_matches_records(records):
+    """Table has one row per record."""
+    result = to_table(records)
 
     assert result.num_rows == EXPECTED_ROW_COUNT
-
-
-def test_extract_column_names_correct(mock_client):
-    """Table has correct column names."""
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.column_names == HEADERS
-
-
-def test_extract_composes_fetch_parse_to_table(mock_client):
-    """Result matches manually composing fetch, parse, and to_table."""
-    raw = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
-    records = parse(raw)
-    expected = to_table(records)
-
-    mock_client.spreadsheets().values().get().execute.return_value = {
-        "values": [HEADERS, *ROWS]
-    }
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.equals(expected)

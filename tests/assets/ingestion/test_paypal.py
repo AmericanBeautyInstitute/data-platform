@@ -58,9 +58,9 @@ def paypal_resource():
     )
 
 
-def test_asset_name():
-    """Asset name is paypal_transactions_raw."""
-    assert paypal_transactions_raw.key.path[-1] == "paypal_transactions_raw"
+def test_asset_has_daily_partitions():
+    """Asset uses DailyPartitionsDefinition."""
+    assert isinstance(paypal_transactions_raw.partitions_def, DailyPartitionsDefinition)
 
 
 def test_asset_has_ingestion_group():
@@ -71,69 +71,9 @@ def test_asset_has_ingestion_group():
     )
 
 
-def test_asset_has_daily_partitions():
-    """Asset uses DailyPartitionsDefinition."""
-    assert isinstance(paypal_transactions_raw.partitions_def, DailyPartitionsDefinition)
-
-
-def test_materialize_succeeds(env_vars, paypal_resource):
-    """Asset materializes without error using mocked dependencies."""
-    with (
-        patch(
-            "assets.ingestion.paypal.paypal_extract.extract", return_value=SAMPLE_TABLE
-        ),
-        patch("assets.ingestion.paypal.gcs_load.load", return_value=FAKE_GCS_URI),
-        patch("assets.ingestion.paypal.bq_load.load", return_value=FAKE_ROWS_LOADED),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.PayPalResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        result = materialize(
-            [paypal_transactions_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "paypal": paypal_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    assert result.success
-
-
-def test_materialize_passes_date_range_to_extract(env_vars, paypal_resource):
-    """extract() is called with start and end date equal to partition date."""
-    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
-
-    with (
-        patch("assets.ingestion.paypal.paypal_extract.extract", mock_extract),
-        patch("assets.ingestion.paypal.gcs_load.load", return_value=FAKE_GCS_URI),
-        patch("assets.ingestion.paypal.bq_load.load", return_value=FAKE_ROWS_LOADED),
-        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
-        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
-        patch(
-            "assets.ingestion.resources.PayPalResource.get_client",
-            return_value=MagicMock(),
-        ),
-    ):
-        materialize(
-            [paypal_transactions_raw],
-            partition_key=PARTITION_KEY,
-            resources={
-                "gcs": gcs_resource,
-                "bigquery": bigquery_resource,
-                "paypal": paypal_resource,
-                "ingestion_env": ingestion_config,
-            },
-        )
-
-    args = mock_extract.call_args[0]
-    assert args[1] == date.fromisoformat(PARTITION_KEY)
-    assert args[2] == date.fromisoformat(PARTITION_KEY)
+def test_asset_name():
+    """Asset name is paypal_transactions_raw."""
+    assert paypal_transactions_raw.key.path[-1] == "paypal_transactions_raw"
 
 
 def test_materialize_gcs_source_is_table_name(env_vars, paypal_resource):
@@ -197,3 +137,63 @@ def test_materialize_output_metadata_keys(env_vars, paypal_resource):
     mat_event = result.get_asset_materialization_events()[0]
     metadata_keys = set(mat_event.materialization.metadata.keys())
     assert EXPECTED_METADATA_KEYS.issubset(metadata_keys)
+
+
+def test_materialize_passes_date_range_to_extract(env_vars, paypal_resource):
+    """extract() is called with start and end date equal to partition date."""
+    mock_extract = MagicMock(return_value=SAMPLE_TABLE)
+
+    with (
+        patch("assets.ingestion.paypal.paypal_extract.extract", mock_extract),
+        patch("assets.ingestion.paypal.gcs_load.load", return_value=FAKE_GCS_URI),
+        patch("assets.ingestion.paypal.bq_load.load", return_value=FAKE_ROWS_LOADED),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.PayPalResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        materialize(
+            [paypal_transactions_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "paypal": paypal_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    args = mock_extract.call_args[0]
+    assert args[1] == date.fromisoformat(PARTITION_KEY)
+    assert args[2] == date.fromisoformat(PARTITION_KEY)
+
+
+def test_materialize_succeeds(env_vars, paypal_resource):
+    """Asset materializes without error using mocked dependencies."""
+    with (
+        patch(
+            "assets.ingestion.paypal.paypal_extract.extract", return_value=SAMPLE_TABLE
+        ),
+        patch("assets.ingestion.paypal.gcs_load.load", return_value=FAKE_GCS_URI),
+        patch("assets.ingestion.paypal.bq_load.load", return_value=FAKE_ROWS_LOADED),
+        patch("dagster_gcp.GCSResource.get_client", return_value=MagicMock()),
+        patch("dagster_gcp.BigQueryResource.get_client", return_value=MagicMock()),
+        patch(
+            "assets.ingestion.resources.PayPalResource.get_client",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = materialize(
+            [paypal_transactions_raw],
+            partition_key=PARTITION_KEY,
+            resources={
+                "gcs": gcs_resource,
+                "bigquery": bigquery_resource,
+                "paypal": paypal_resource,
+                "ingestion_env": ingestion_config,
+            },
+        )
+
+    assert result.success
