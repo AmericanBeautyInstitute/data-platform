@@ -1,13 +1,13 @@
 """Extract request and response schemas."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from api.schemas.pipeline import RunStatus
 
 
-class ExtractSource(str, Enum):
+class ExtractSource(StrEnum):
     """Available data extract sources."""
 
     FACEBOOK_ADS = "facebook_ads"
