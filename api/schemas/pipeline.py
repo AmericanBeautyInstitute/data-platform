@@ -1,11 +1,11 @@
 """Pipeline request and response schemas."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class RunStatus(str, Enum):
+class RunStatus(StrEnum):
     """Possible states for a Dagster pipeline run."""
 
     CANCELED = "CANCELED"
