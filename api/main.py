@@ -32,6 +32,3 @@ async def _lifespan(app: FastAPI):
     """Manages application startup and shutdown."""
     app.state.run_sources = {}
     yield
-
-
-app = create_app()
