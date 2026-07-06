@@ -86,7 +86,7 @@ def test_pipeline_appends_on_second_run(mock_client: MagicMock, tmp_path: Path) 
     _run_pipeline(mock_client, db_path, dlt_dir)
 
     conn = duckdb.connect(db_path)
-    result = conn.execute("SELECT count(*) FROM raw.students").fetchone()
+    result = conn.execute("SELECT count(*) FROM raw.google_sheets_students").fetchone()
     count = result[0] if result else 0
 
     assert count == expected_rows
@@ -113,7 +113,7 @@ def test_pipeline_loads_rows_with_snapshot_date(
 
     conn = duckdb.connect(db_path)
     rows = conn.execute(
-        "SELECT name, snapshot_date FROM raw.students ORDER BY name"
+        "SELECT name, snapshot_date FROM raw.google_sheets_students ORDER BY name"
     ).fetchall()
 
     assert len(rows) == expected_rows

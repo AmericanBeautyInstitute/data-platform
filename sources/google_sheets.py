@@ -21,7 +21,7 @@ def google_sheets_source(
     yield inventory(client, spreadsheet_id, snapshot_date)
 
 
-@dlt.resource(name="students", write_disposition="append")
+@dlt.resource(name="google_sheets_students", write_disposition="append")
 def students(
     client: Resource,
     spreadsheet_id: str,
@@ -31,7 +31,7 @@ def students(
     yield from _fetch(client, spreadsheet_id, "students", snapshot_date)
 
 
-@dlt.resource(name="programs", write_disposition="append")
+@dlt.resource(name="google_sheets_programs", write_disposition="append")
 def programs(
     client: Resource,
     spreadsheet_id: str,
@@ -41,7 +41,7 @@ def programs(
     yield from _fetch(client, spreadsheet_id, "programs", snapshot_date)
 
 
-@dlt.resource(name="inventory", write_disposition="append")
+@dlt.resource(name="google_sheets_inventory", write_disposition="append")
 def inventory(
     client: Resource,
     spreadsheet_id: str,
