@@ -1,95 +1,126 @@
-"""Google Analytics data extractor."""
+"""Google Analytics 4 dlt source."""
 
+from collections.abc import Iterator
 from datetime import date
 
-import pyarrow as pa
+import dlt
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
     DateRange,
     Dimension,
     Metric,
     RunReportRequest,
-    RunReportResponse,
 )
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+DIMENSIONS = ("date", "sessionSource", "sessionMedium", "country")
+METRICS = ("sessions", "screenPageViews", "bounceRate", "conversions")
+PRIMARY_KEY = ("date", "session_source", "session_medium", "country")
+_PAGE_SIZE = 100_000
 
 
-class ReportConfig(BaseModel):
-    """Defines the dimensions and metrics for a GA4 report request."""
+class SessionStat(BaseModel):
+    """A validated, typed GA4 sessions record for one day and acquisition grain."""
 
-    model_config = ConfigDict(frozen=True)
-
-    dimension_names: list[str]
-    metric_names: list[str]
-
-
-class Raw(BaseModel):
-    """Mirrors a single row from the GA4 API response."""
-
-    model_config = ConfigDict(frozen=True)
-
-    date: str
-    dimensions: list[str]
-    metrics: list[str]
-
-
-class Record(BaseModel):
-    """A validated, typed GA4 performance record."""
-
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     date: date
-    dimensions: dict[str, str]
-    metrics: dict[str, str]
+    session_source: str = Field(validation_alias="sessionSource")
+    session_medium: str = Field(validation_alias="sessionMedium")
+    country: str
+    sessions: int
+    screen_page_views: int = Field(validation_alias="screenPageViews")
+    bounce_rate: float = Field(validation_alias="bounceRate")
+    conversions: float
 
     @field_validator("date", mode="before")
     @classmethod
     def parse_date(cls, v: str | date) -> date:
-        """Parses date string in YYYYMMDD format from GA4 API."""
+        """Parses a GA4 YYYYMMDD date string into a date."""
         if isinstance(v, date):
             return v
-        year = int(v[:4])
-        month = int(v[4:6])
-        day = int(v[6:])
-        return date(year, month, day)
+        return date(int(v[:4]), int(v[4:6]), int(v[6:8]))
+
+    @field_validator("sessions", "screen_page_views", mode="before")
+    @classmethod
+    def parse_int(cls, v: str | int) -> int:
+        """Parses a GA4 string metric into an integer."""
+        return int(v)
+
+    @field_validator("bounce_rate", "conversions", mode="before")
+    @classmethod
+    def parse_float(cls, v: str | float) -> float:
+        """Parses a GA4 string metric into a float."""
+        return float(v)
 
 
-def extract(
+@dlt.source(name="google_analytics")
+def google_analytics_source(
     client: BetaAnalyticsDataClient,
     property_id: str,
     start_date: date,
     end_date: date,
-    config: ReportConfig,
-) -> pa.Table:
-    """Extracts Google Analytics data into a PyArrow table."""
-    raw_rows = fetch(client, property_id, start_date, end_date, config)
-    records = [parse(r, config) for r in raw_rows]
-    table = to_table(records, config)
-    return table
+) -> Iterator[dlt.sources.DltResource]:
+    """Groups the Google Analytics resources for a property and date range."""
+    yield sessions(client, property_id, start_date, end_date)
 
 
-def fetch(
+@dlt.resource(
+    name="google_analytics",
+    write_disposition="merge",
+    primary_key=PRIMARY_KEY,
+    columns=SessionStat,
+)
+def sessions(
     client: BetaAnalyticsDataClient,
     property_id: str,
     start_date: date,
     end_date: date,
-    config: ReportConfig,
-) -> list[Raw]:
-    """Fetches raw data from the GA4 API."""
-    request = _build_request(property_id, start_date, end_date, config)
-    response = client.run_report(request)
-    raw_rows = _parse_response(response, config)
-    return raw_rows
+) -> Iterator[SessionStat]:
+    """Yields validated GA4 sessions records for the given property and dates."""
+    for payload in _fetch(client, property_id, start_date, end_date):
+        yield parse(payload)
+
+
+def parse(payload: dict) -> SessionStat:
+    """Converts a header-keyed GA4 row into a typed SessionStat."""
+    try:
+        return SessionStat.model_validate(payload)
+    except ValidationError as exc:
+        raise ValueError(f"Failed to parse GA4 row: {payload}") from exc
+
+
+def _fetch(
+    client: BetaAnalyticsDataClient,
+    property_id: str,
+    start_date: date,
+    end_date: date,
+) -> Iterator[dict]:
+    """Yields raw GA4 rows as header-keyed dicts, paginating over the row cap."""
+    offset = 0
+    while True:
+        response = client.run_report(
+            _build_request(property_id, start_date, end_date, offset)
+        )
+        headers = [h.name for h in response.dimension_headers]
+        headers += [h.name for h in response.metric_headers]
+        for row in response.rows:
+            values = [v.value for v in row.dimension_values]
+            values += [v.value for v in row.metric_values]
+            yield dict(zip(headers, values, strict=True))
+        offset += len(response.rows)
+        if not response.rows or offset >= response.row_count:
+            break
 
 
 def _build_request(
     property_id: str,
     start_date: date,
     end_date: date,
-    config: ReportConfig,
+    offset: int,
 ) -> RunReportRequest:
-    """Builds a GA4 RunReportRequest."""
-    request = RunReportRequest(
+    """Builds a paginated GA4 RunReportRequest for the fixed sessions report."""
+    return RunReportRequest(
         property=f"properties/{property_id}",
         date_ranges=[
             DateRange(
@@ -97,60 +128,8 @@ def _build_request(
                 end_date=end_date.isoformat(),
             )
         ],
-        dimensions=[Dimension(name=d) for d in config.dimension_names],
-        metrics=[Metric(name=m) for m in config.metric_names],
+        dimensions=[Dimension(name=name) for name in DIMENSIONS],
+        metrics=[Metric(name=name) for name in METRICS],
+        limit=_PAGE_SIZE,
+        offset=offset,
     )
-    return request
-
-
-def _parse_response(
-    response: RunReportResponse,
-    config: ReportConfig,
-) -> list[Raw]:
-    """Parses a GA4 API response into a list of Raw rows."""
-    rows = []
-    for row in response.rows:
-        dimension_values = [v.value for v in row.dimension_values]
-        metric_values = [v.value for v in row.metric_values]
-
-        date_index = (
-            config.dimension_names.index("date")
-            if "date" in config.dimension_names
-            else None
-        )
-        date_value = dimension_values[date_index] if date_index is not None else ""
-
-        raw = Raw(
-            date=date_value,
-            dimensions=dimension_values,
-            metrics=metric_values,
-        )
-        rows.append(raw)
-    return rows
-
-
-def parse(raw: Raw, config: ReportConfig) -> Record:
-    """Converts a Raw GA4 row into a typed Record."""
-    dimensions = dict(zip(config.dimension_names, raw.dimensions, strict=True))
-    metrics = dict(zip(config.metric_names, raw.metrics, strict=True))
-    try:
-        return Record(
-            date=raw.date,
-            dimensions=dimensions,
-            metrics=metrics,
-        )
-    except ValidationError as exc:
-        raise ValueError(f"Failed to parse GA4 row: {raw}") from exc
-
-
-def to_table(records: list[Record], config: ReportConfig) -> pa.Table:
-    """Converts a list of Records into a PyArrow table."""
-    rows = []
-    for record in records:
-        row: dict[str, str] = {}
-        row.update(record.dimensions)
-        row.update(record.metrics)
-        row["date"] = record.date.isoformat()
-        rows.append(row)
-    table = pa.Table.from_pylist(rows)
-    return table

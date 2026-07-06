@@ -1,314 +1,254 @@
-"""Tests for Google Analytics extraction."""
+"""Tests for the Google Analytics dlt source."""
 
-from datetime import date
+import os
+from datetime import date, timedelta
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pyarrow as pa
+import dlt
+import duckdb
 import pytest
+from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from sources.google_analytics.client import build_client
 from sources.google_analytics.extract import (
-    Raw,
-    Record,
-    ReportConfig,
+    DIMENSIONS,
+    METRICS,
+    SessionStat,
     _build_request,
-    _parse_response,
-    extract,
-    fetch,
+    _fetch,
     parse,
-    to_table,
+    sessions,
 )
 
 PROPERTY_ID = "123456"
 START_DATE = date(2024, 1, 1)
 END_DATE = date(2024, 1, 31)
-START_DATE_STR = "2024-01-01"
-END_DATE_STR = "2024-01-31"
-EXPECTED_ROW_COUNT = 2
-EXPECTED_COLUMN_COUNT = 4
+
+load_dotenv()
+_LIVE_PROPERTY_ID = os.getenv("GA4_PROPERTY_ID")
+_LIVE_CREDENTIALS = os.getenv("GCP_SERVICE_ACCOUNT_KEY")
+_HAS_LIVE_CREDS = bool(
+    _LIVE_PROPERTY_ID and _LIVE_CREDENTIALS and Path(_LIVE_CREDENTIALS).is_file()
+)
 
 
 @pytest.fixture
-def config():
-    """ReportConfig with sample dimensions and metrics."""
-    return ReportConfig(
-        dimension_names=["date", "country"],
-        metric_names=["sessions", "pageviews"],
+def payload() -> dict[str, str]:
+    """A single header-keyed GA4 row, as _fetch yields it."""
+    return {
+        "date": "20240101",
+        "sessionSource": "google",
+        "sessionMedium": "cpc",
+        "country": "Japan",
+        "sessions": "100",
+        "screenPageViews": "500",
+        "bounceRate": "0.25",
+        "conversions": "3",
+    }
+
+
+@pytest.fixture
+def mock_client() -> MagicMock:
+    """GA4 client returning one page of two rows."""
+    tokyo = _mock_row(
+        ["20240101", "google", "cpc", "Japan"], ["100", "500", "0.25", "3"]
     )
-
-
-@pytest.fixture
-def mock_client():
-    """Mocked GA4 API client."""
+    usa = _mock_row(
+        ["20240102", "(direct)", "(none)", "USA"], ["200", "700", "0.1", "5"]
+    )
     client = MagicMock()
-
-    mock_row_1 = MagicMock()
-    mock_row_1.dimension_values = [
-        MagicMock(value="20240101"),
-        MagicMock(value="Japan"),
-    ]
-    mock_row_1.metric_values = [
-        MagicMock(value="100"),
-        MagicMock(value="500"),
-    ]
-
-    mock_row_2 = MagicMock()
-    mock_row_2.dimension_values = [
-        MagicMock(value="20240102"),
-        MagicMock(value="USA"),
-    ]
-    mock_row_2.metric_values = [
-        MagicMock(value="200"),
-        MagicMock(value="700"),
-    ]
-
-    client.run_report.return_value.rows = [mock_row_1, mock_row_2]
+    client.run_report.return_value = _mock_response([tokyo, usa])
     return client
 
 
-@pytest.fixture
-def raw_rows():
-    """Sample Raw rows."""
-    return [
-        Raw(date="20240101", dimensions=["20240101", "Japan"], metrics=["100", "500"]),
-        Raw(date="20240102", dimensions=["20240102", "USA"], metrics=["200", "700"]),
-    ]
-
-
-@pytest.fixture
-def records(raw_rows, config):
-    """Parsed Records from sample raw rows."""
-    return [parse(r, config) for r in raw_rows]
-
-
-def test_build_request_sets_date_range():
-    """Date range is set correctly."""
-    cfg = ReportConfig(
-        dimension_names=["date", "country"],
-        metric_names=["sessions", "pageviews"],
+def _mock_row(dimensions: list[str], metrics: list[str]) -> SimpleNamespace:
+    """Builds a GA4 response row."""
+    return SimpleNamespace(
+        dimension_values=[SimpleNamespace(value=v) for v in dimensions],
+        metric_values=[SimpleNamespace(value=v) for v in metrics],
     )
-    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, cfg)
-
-    assert request.date_ranges[0].start_date == START_DATE_STR
-    assert request.date_ranges[0].end_date == END_DATE_STR
 
 
-def test_build_request_sets_dimensions(config):
-    """Dimension names are wrapped in Dimension objects."""
-    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, config)
-
-    assert [d.name for d in request.dimensions] == config.dimension_names
-
-
-def test_build_request_sets_metrics(config):
-    """Metric names are wrapped in Metric objects."""
-    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, config)
-
-    assert [m.name for m in request.metrics] == config.metric_names
-
-
-def test_build_request_sets_property():
-    """Property ID is prefixed with 'properties/'."""
-    cfg = ReportConfig(
-        dimension_names=["date", "country"],
-        metric_names=["sessions", "pageviews"],
+def _mock_response(rows: list, row_count: int | None = None) -> SimpleNamespace:
+    """Builds a GA4 RunReportResponse."""
+    return SimpleNamespace(
+        dimension_headers=[_mock_header(name) for name in DIMENSIONS],
+        metric_headers=[_mock_header(name) for name in METRICS],
+        rows=rows,
+        row_count=row_count if row_count is not None else len(rows),
     )
-    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, cfg)
+
+
+def _mock_header(name: str) -> SimpleNamespace:
+    """Builds a GA4 response header."""
+    return SimpleNamespace(name=name)
+
+
+def test_build_request_sets_dimensions_and_metrics() -> None:
+    """Tests that the request wraps the fixed dimension and metric names."""
+    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, offset=0)
+
+    assert tuple(d.name for d in request.dimensions) == DIMENSIONS
+    assert tuple(m.name for m in request.metrics) == METRICS
+
+
+def test_build_request_sets_offset() -> None:
+    """Tests that the request carries the pagination offset."""
+    offset = 500
+
+    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, offset=offset)
+
+    assert request.offset == offset
+
+
+def test_build_request_sets_property_and_dates() -> None:
+    """Tests that the request carries the property path and ISO date range."""
+    request = _build_request(PROPERTY_ID, START_DATE, END_DATE, offset=0)
 
     assert request.property == f"properties/{PROPERTY_ID}"
+    assert request.date_ranges[0].start_date == "2024-01-01"
+    assert request.date_ranges[0].end_date == "2024-01-31"
 
 
-def test_extract_column_names(mock_client, config):
-    """Table contains expected column names."""
-    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+def test_fetch_keys_rows_by_header(
+    mock_client: MagicMock, payload: dict[str, str]
+) -> None:
+    """Tests that each raw row is a dict keyed by GA4 header names."""
+    rows = list(_fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE))
 
-    assert "date" in result.column_names
-    assert "country" in result.column_names
-    assert "sessions" in result.column_names
-    assert "pageviews" in result.column_names
-
-
-def test_extract_composes_fetch_parse_to_table(mock_client, config):
-    """Result matches manually composing fetch, parse, and to_table."""
-    raw_rows = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
-    parsed = [parse(r, config) for r in raw_rows]
-    expected = to_table(parsed, config)
-
-    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
-
-    assert result.equals(expected)
+    assert rows[0] == payload
 
 
-def test_extract_returns_pyarrow_table(mock_client, config):
-    """Returns a pa.Table instance."""
-    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+def test_fetch_paginates_until_row_count_reached() -> None:
+    """Tests that fetch keeps requesting until the reported row_count is covered."""
+    expected_rows = 2
+    expected_pages = 2
+    tokyo = _mock_row(
+        ["20240101", "google", "cpc", "Japan"], ["100", "500", "0.25", "3"]
+    )
+    usa = _mock_row(
+        ["20240102", "(direct)", "(none)", "USA"], ["200", "700", "0.1", "5"]
+    )
+    client = MagicMock()
+    client.run_report.side_effect = [
+        _mock_response([tokyo], row_count=expected_rows),
+        _mock_response([usa], row_count=expected_rows),
+    ]
 
-    assert isinstance(result, pa.Table)
+    rows = list(_fetch(client, PROPERTY_ID, START_DATE, END_DATE))
+
+    assert len(rows) == expected_rows
+    assert client.run_report.call_count == expected_pages
 
 
-def test_extract_row_count(mock_client, config):
-    """Table has correct number of rows."""
-    result = extract(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
-
-
-def test_fetch_calls_api(mock_client, config):
-    """GA4 API run_report is called once."""
-    fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+def test_fetch_single_page_calls_api_once(mock_client: MagicMock) -> None:
+    """Tests that a single page of results issues one API call."""
+    list(_fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE))
 
     mock_client.run_report.assert_called_once()
 
 
-def test_fetch_returns_list_of_raw(mock_client, config):
-    """Returns a list of Raw instances."""
-    result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+@pytest.mark.skipif(not _HAS_LIVE_CREDS, reason="GA4 live credentials not configured")
+def test_live_smoke_pull_parses_without_error() -> None:
+    """Tests that a real GA4 pull authenticates and parses into typed records.
 
-    assert all(isinstance(r, Raw) for r in result)
+    Verifies the round-trip (auth, request, pagination, parse) succeeds and any
+    returned rows are typed. The configured property may legitimately be empty,
+    so row presence is not asserted.
+    """
+    assert _LIVE_CREDENTIALS is not None
+    assert _LIVE_PROPERTY_ID is not None
+    client = build_client(_LIVE_CREDENTIALS)
+    end = date.today() - timedelta(days=1)
+    start = end - timedelta(days=30)
+
+    records = [parse(row) for row in _fetch(client, _LIVE_PROPERTY_ID, start, end)]
+
+    assert all(isinstance(record, SessionStat) for record in records)
 
 
-def test_fetch_row_count(mock_client, config):
-    """Returns correct number of rows."""
-    result = fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE, config)
+def test_parse_applies_camelcase_aliases(payload: dict[str, str]) -> None:
+    """Tests that GA4 camelCase keys map onto snake_case fields."""
+    result = parse(payload)
 
-    assert len(result) == EXPECTED_ROW_COUNT
+    assert result.session_source == "google"
+    assert result.session_medium == "cpc"
 
 
-def test_parse_date_converted_to_date_type(raw_rows, config):
-    """Date string YYYYMMDD is parsed to date object."""
-    result = parse(raw_rows[0], config)
+def test_parse_casts_types(payload: dict[str, str]) -> None:
+    """Tests that metrics and date are cast to their typed forms."""
+    expected_sessions = 100
+    expected_page_views = 500
+    expected_bounce_rate = 0.25
+    expected_conversions = 3.0
+
+    result = parse(payload)
 
     assert result.date == date(2024, 1, 1)
+    assert result.sessions == expected_sessions
+    assert result.screen_page_views == expected_page_views
+    assert result.bounce_rate == expected_bounce_rate
+    assert result.conversions == expected_conversions
 
 
-def test_parse_dimensions_mapped_correctly(raw_rows, config):
-    """Dimension values mapped to dimension names."""
-    result = parse(raw_rows[0], config)
+def test_parse_fails_loud_on_missing_field(payload: dict[str, str]) -> None:
+    """Tests that a missing field raises a ValueError, not a silent default."""
+    del payload["sessions"]
 
-    assert result.dimensions == {"date": "20240101", "country": "Japan"}
-
-
-def test_parse_metrics_mapped_correctly(raw_rows, config):
-    """Metric values mapped to metric names."""
-    result = parse(raw_rows[0], config)
-
-    assert result.metrics == {"sessions": "100", "pageviews": "500"}
+    with pytest.raises(ValueError, match="Failed to parse GA4 row"):
+        parse(payload)
 
 
-def test_parse_record_is_immutable(raw_rows, config):
-    """Record instances cannot be mutated."""
-    result = parse(raw_rows[0], config)
+def test_pipeline_loads_typed_rows(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that the pipeline lands typed, snake_case columns in the destination."""
+    expected_rows = 2
+    expected_first_row = (date(2024, 1, 1), "google", 100, 0.25)
+    db_path = str(tmp_path / "ga.duckdb")
+    _run_pipeline(mock_client, db_path, str(tmp_path / "dlt"))
+
+    conn = duckdb.connect(db_path)
+    rows = conn.execute(
+        "SELECT date, session_source, sessions, bounce_rate "
+        "FROM raw.google_analytics ORDER BY date"
+    ).fetchall()
+
+    assert rows[0] == expected_first_row
+    assert len(rows) == expected_rows
+
+
+def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
+    """Runs the sessions resource into a duckdb destination."""
+    pipeline = dlt.pipeline(
+        pipeline_name="ga_test",
+        destination=dlt.destinations.duckdb(db_path),
+        dataset_name="raw",
+        pipelines_dir=dlt_dir,
+    )
+    pipeline.run(sessions(client, PROPERTY_ID, START_DATE, END_DATE))
+
+
+def test_pipeline_merge_is_idempotent(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that re-running the same partition upserts rather than duplicating rows."""
+    expected_rows = 2
+    db_path = str(tmp_path / "ga.duckdb")
+    dlt_dir = str(tmp_path / "dlt")
+
+    _run_pipeline(mock_client, db_path, dlt_dir)
+    _run_pipeline(mock_client, db_path, dlt_dir)
+
+    conn = duckdb.connect(db_path)
+    result = conn.execute("SELECT count(*) FROM raw.google_analytics").fetchone()
+    count = result[0] if result else 0
+
+    assert count == expected_rows
+
+
+def test_session_stat_is_immutable(payload: dict[str, str]) -> None:
+    """Tests that SessionStat instances cannot be mutated."""
+    result = parse(payload)
 
     with pytest.raises(ValidationError):
-        result.date = date(2025, 1, 1)
-
-
-def test_parse_response_extracts_date(mock_client, config):
-    """Date extracted correctly from dimension values."""
-    result = _parse_response(mock_client.run_report.return_value, config)
-
-    assert result[0].date == "20240101"
-    assert result[1].date == "20240102"
-
-
-def test_parse_response_returns_raw_list(mock_client, config):
-    """Returns a list of Raw instances."""
-    result = _parse_response(mock_client.run_report.return_value, config)
-
-    assert all(isinstance(r, Raw) for r in result)
-
-
-def test_parse_response_row_count(mock_client, config):
-    """Returns one Raw per response row."""
-    result = _parse_response(mock_client.run_report.return_value, config)
-
-    assert len(result) == EXPECTED_ROW_COUNT
-
-
-def test_parse_returns_record(raw_rows, config):
-    """Returns a Record instance."""
-    result = parse(raw_rows[0], config)
-
-    assert isinstance(result, Record)
-
-
-def test_raw_is_immutable():
-    """Raw instances cannot be mutated."""
-    raw = Raw(date="20240101", dimensions=["20240101", "Japan"], metrics=["100", "500"])
-
-    with pytest.raises(ValidationError):
-        raw.date = "20240102"
-
-
-def test_record_date_validator_accepts_date_object():
-    """Date validator passes through an existing date object unchanged."""
-    existing_date = date(2024, 1, 1)
-    record = Record(
-        date=existing_date,
-        dimensions={"date": "20240101", "country": "Japan"},
-        metrics={"sessions": "100", "pageviews": "500"},
-    )
-
-    assert record.date == existing_date
-
-
-def test_record_date_validator_parses_yyyymmdd_string():
-    """Date validator correctly parses YYYYMMDD string."""
-    record = Record(
-        date="20240115",  # ty: ignore[invalid-argument-type]
-        dimensions={"date": "20240115", "country": "Japan"},
-        metrics={"sessions": "100", "pageviews": "500"},
-    )
-
-    assert record.date == date(2024, 1, 15)
-
-
-def test_to_table_column_count(records, config):
-    """Table has correct number of columns."""
-    result = to_table(records, config)
-
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_to_table_contains_date_column(records, config):
-    """Table contains a date column."""
-    result = to_table(records, config)
-
-    assert "date" in result.column_names
-
-
-def test_to_table_date_values_correct(records, config):
-    """Date column contains correct ISO format values."""
-    result = to_table(records, config)
-
-    assert result.column("date").to_pylist() == ["2024-01-01", "2024-01-02"]
-
-
-def test_to_table_empty_records_returns_empty_table(config):
-    """Empty records list returns empty table."""
-    result = to_table([], config)
-
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
-
-
-def test_to_table_metric_values_correct(records, config):
-    """Metric columns contain correct values."""
-    result = to_table(records, config)
-
-    assert result.column("sessions").to_pylist() == ["100", "200"]
-    assert result.column("pageviews").to_pylist() == ["500", "700"]
-
-
-def test_to_table_returns_pyarrow_table(records, config):
-    """Returns a pa.Table instance."""
-    result = to_table(records, config)
-
-    assert isinstance(result, pa.Table)
-
-
-def test_to_table_row_count(records, config):
-    """Table has one row per record."""
-    result = to_table(records, config)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+        result.sessions = 999
