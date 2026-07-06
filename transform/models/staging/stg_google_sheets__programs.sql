@@ -1,17 +1,22 @@
-MODEL (
-  name staging.stg_google_sheets__programs,
-  kind FULL,
-  grain program_id,
-  cron '@daily',
-  audits (assert_no_nulls(column := program_id))
-);
+-- Keeps only the most recent snapshot: the sheet is append-loaded, so each
+-- snapshot_date is a full copy. Programs are a current-state dimension.
+with source as (
+    select * from {{ source('raw', 'google_sheets_programs') }}
+),
 
-SELECT
-  CAST(program_id          AS STRING)  AS program_id,
-  CAST(program_name        AS STRING)  AS program_name,
-  CAST(program_code        AS STRING)  AS program_code,
-  CAST(duration_weeks      AS INT64)   AS duration_weeks,
-  CAST(max_enrollment      AS INT64)   AS max_enrollment,
-  CAST(is_active           AS BOOL)    AS is_active,
-  CAST(loaded_at           AS TIMESTAMP) AS loaded_at
-FROM raw.google_sheets_programs
+renamed as (
+    select
+        cast(program_id as string) as program_id,
+        cast(program_name as string) as program_name,
+        cast(program_code as string) as program_code,
+        cast(duration_weeks as int64) as duration_weeks,
+        cast(max_enrollment as int64) as max_enrollment,
+        cast(is_active as bool) as is_active,
+        cast(snapshot_date as date) as snapshot_date
+    from source
+    qualify row_number() over (
+        partition by program_id order by snapshot_date desc
+    ) = 1
+)
+
+select * from renamed

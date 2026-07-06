@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: mart_enrollment__ad_attribution
+    columns:
+      - name: date
+        data_tests: [not_null]
+  - name: mart_finance__revenue_by_program
+    columns:
+      - name: month
+        data_tests: [not_null]
+  - name: mart_inventory__stock_levels
+    columns:
+      - name: sku_id
+        data_tests: [not_null]

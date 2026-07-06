@@ -1,82 +1,66 @@
-MODEL (
-  name marts.mart_finance__revenue_by_program,
-  kind INCREMENTAL_BY_TIME_RANGE (
-    time_column month
-  ),
-  grain (month, program_id, payment_source),
-  cron '@daily',
-  audits (assert_no_nulls(column := month))
-);
-
-WITH stripe_revenue AS (
-  SELECT
-    DATE_TRUNC(charge_date, MONTH)      AS month,
-    description                         AS transaction_subject,
-    SUM(gross_amount_usd)               AS gross_revenue,
-    SUM(fee_usd)                        AS total_fees,
-    SUM(net_usd)                        AS net_revenue,
-    COUNT(*)                            AS transaction_count,
-    'stripe'                            AS payment_source
-  FROM staging.stg_stripe__charges
-  WHERE
-    status = 'succeeded'
-    AND charge_date BETWEEN @start_date AND @end_date
-  GROUP BY DATE_TRUNC(charge_date, MONTH), description
+with stripe_revenue as (
+  select
+    date_trunc(charge_date, month) as month,
+    description as transaction_subject,
+    sum(gross_amount_usd) as gross_revenue,
+    sum(fee_usd) as total_fees,
+    sum(net_usd) as net_revenue,
+    count(*) as transaction_count,
+    'stripe' as payment_source
+  from {{ ref('stg_stripe__charges') }}
+  where status = 'succeeded'
+  group by date_trunc(charge_date, month), description
 ),
 
-paypal_revenue AS (
-  SELECT
-    DATE_TRUNC(transaction_date, MONTH) AS month,
+paypal_revenue as (
+  select
+    date_trunc(transaction_date, month) as month,
     transaction_subject,
-    SUM(gross_amount_usd)               AS gross_revenue,
-    SUM(fee_amount_usd) * -1            AS total_fees,
-    SUM(net_amount_usd)                 AS net_revenue,
-    COUNT(*)                            AS transaction_count,
-    'paypal'                            AS payment_source
-  FROM staging.stg_paypal__transactions
-  WHERE
-    transaction_status = 'S'
-    AND transaction_date BETWEEN @start_date AND @end_date
-  GROUP BY DATE_TRUNC(transaction_date, MONTH), transaction_subject
+    sum(gross_amount_usd) as gross_revenue,
+    sum(fee_amount_usd) * -1 as total_fees,
+    sum(net_amount_usd) as net_revenue,
+    count(*) as transaction_count,
+    'paypal' as payment_source
+  from {{ ref('stg_paypal__transactions') }}
+  where transaction_status = 'S'
+  group by date_trunc(transaction_date, month), transaction_subject
 ),
 
-combined AS (
-  SELECT * FROM stripe_revenue
-  UNION ALL
-  SELECT * FROM paypal_revenue
+combined as (
+  select * from stripe_revenue
+  union all
+  select * from paypal_revenue
 ),
 
-joined_to_programs AS (
-  SELECT
+joined_to_programs as (
+  select
     c.month,
     c.payment_source,
     c.transaction_subject,
-    COALESCE(p.program_id, 'unknown')   AS program_id,
-    COALESCE(p.program_name, 'unknown') AS program_name,
+    coalesce(p.program_id, 'unknown') as program_id,
+    coalesce(p.program_name, 'unknown') as program_name,
     c.gross_revenue,
     c.total_fees,
     c.net_revenue,
     c.transaction_count
-  FROM combined AS c
-  LEFT JOIN staging.stg_google_sheets__programs AS p
-    ON LOWER(c.transaction_subject) LIKE CONCAT('%', LOWER(p.program_name), '%')
+  from combined as c
+  left join {{ ref('stg_google_sheets__programs') }} as p
+    on lower(c.transaction_subject) like concat('%', lower(p.program_name), '%')
 )
 
-SELECT
+select
   month,
   program_id,
   program_name,
   payment_source,
   transaction_subject,
-  SUM(gross_revenue)      AS gross_revenue,
-  SUM(total_fees)         AS total_fees,
-  SUM(net_revenue)        AS net_revenue,
-  SUM(transaction_count)  AS transaction_count,
-  SAFE_DIVIDE(
-    SUM(net_revenue),
-    NULLIF(SUM(transaction_count), 0)
-  )                       AS avg_net_per_transaction
-FROM joined_to_programs
-WHERE
-  month BETWEEN @start_date AND @end_date
-GROUP BY month, program_id, program_name, payment_source, transaction_subject
+  sum(gross_revenue) as gross_revenue,
+  sum(total_fees) as total_fees,
+  sum(net_revenue) as net_revenue,
+  sum(transaction_count) as transaction_count,
+  safe_divide(
+    sum(net_revenue),
+    nullif(sum(transaction_count), 0)
+  ) as avg_net_per_transaction
+from joined_to_programs
+group by month, program_id, program_name, payment_source, transaction_subject

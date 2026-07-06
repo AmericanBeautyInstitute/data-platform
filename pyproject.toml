@@ -12,8 +12,8 @@ dependencies = [
     "dagster-dlt>=0.29.12",
     "dagster-gcp>=0.28.22",
     "dagster-graphql>=1.12.22",
-    "dagster-sqlmesh>=0.22.0",
-    "dlt[parquet]>=1.28.1",
+    "dbt-bigquery>=1.9",
+    "dlt[bigquery,parquet]>=1.28.1",
     "facebook-business>=25.0.1",
     "fastapi>=0.115.0",
     "google-ads>=28.2.0",
@@ -25,7 +25,6 @@ dependencies = [
     "google-cloud-storage>=2.19.0",
     "pydantic-settings>=2.9.0",
     "python-dotenv>=1.1.1",
-    "sqlmesh[bigquery]>=0.233.0",
     "stripe>=15.0.1",
     "uvicorn[standard]>=0.34.0",
 ]
@@ -75,19 +74,19 @@ fix = true
 unsafe-fixes = true
 
 lint.select = [
-  "E",   # pycodestyle errors
-  "F",   # pyflakes
-  "I",   # isort
-  "UP",  # pyupgrade
-  "B",   # bugbear
-  "SIM", # simplify
-  "D",   # pydocstyle
-  "PL",  # pylint-like
-  "C90", # mccabe
-  "PERF", # performance
-  "RUF", # ruff-specific
-  "PTH", # pathlib
-  "FLY", # f-strings
+  "E",     # pycodestyle errors
+  "F",     # pyflakes
+  "I",     # isort
+  "UP",    # pyupgrade
+  "B",     # bugbear
+  "SIM",   # simplify
+  "D",     # pydocstyle
+  "PL",    # pylint-like
+  "C90",   # mccabe
+  "PERF",  # performance
+  "RUF",   # ruff-specific
+  "PTH",   # pathlib
+  "FLY",   # f-strings
 ]
 
 lint.ignore = []

@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_google_analytics__sessions
+    columns:
+      - name: date
+        data_tests: [not_null]
+  - name: stg_facebook_ads__performance
+    columns:
+      - name: date
+        data_tests: [not_null]
+  - name: stg_google_ads__performance
+    columns:
+      - name: date
+        data_tests: [not_null]
+  - name: stg_paypal__transactions
+    columns:
+      - name: transaction_id
+        data_tests: [not_null]
+  - name: stg_stripe__charges
+    columns:
+      - name: charge_id
+        data_tests: [not_null]
+  - name: stg_google_sheets__students
+    columns:
+      - name: student_id
+        data_tests: [not_null, unique]
+  - name: stg_google_sheets__programs
+    columns:
+      - name: program_id
+        data_tests: [not_null, unique]
+  - name: stg_google_sheets__inventory
+    columns:
+      - name: sku_id
+        data_tests: [not_null]

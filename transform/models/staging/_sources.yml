@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw tables landed by dlt, one per source resource.
+    schema: raw
+    tables:
+      - name: google_analytics
+      - name: facebook_ads
+      - name: google_ads
+      - name: paypal_transactions
+      - name: stripe_charges
+      - name: google_sheets_students
+      - name: google_sheets_programs
+      - name: google_sheets_inventory
