@@ -1,348 +1,178 @@
-"""Tests for Facebook Ads extraction."""
+"""Tests for the Facebook Ads dlt source."""
 
 from datetime import date
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from unittest.mock import MagicMock
 
-import pyarrow as pa
+import dlt
+import duckdb
 import pytest
 from pydantic import ValidationError
 
-from sources.facebook_ads.extract import (
-    Action,
-    Raw,
-    Record,
-    _to_raw,
-    extract,
-    fetch,
+from sources.facebook_ads import (
+    _fetch,
+    campaign_insights,
     parse,
 )
-from sources.table import to_table
 
 START_DATE = date(2024, 1, 15)
 END_DATE = date(2024, 1, 15)
-START_DATE_STR = "2024-01-15"
-CAMPAIGN_ID = "123456789"
-CAMPAIGN_NAME = "ABI Spring Enrollment"
-EXPECTED_ROW_COUNT = 2
-EXPECTED_COLUMN_COUNT = 11
-EXPECTED_IMPRESSIONS = 1000
-EXPECTED_CLICKS = 50
-EXPECTED_SPEND = 25.50
-EXPECTED_REACH = 900
-EXPECTED_FREQUENCY = 1.11
-EXPECTED_LINK_CLICKS = 45
-EXPECTED_LEADS = 3
-EXPECTED_CONVERSIONS = 1
-
-SAMPLE_ACTIONS = [
-    Action(action_type="link_click", value="45"),
-    Action(action_type="lead", value="3"),
-    Action(action_type="offsite_conversion.fb_pixel_purchase", value="1"),
-]
-
-SAMPLE_ACTIONS_DICTS = [
-    {"action_type": "link_click", "value": "45"},
-    {"action_type": "lead", "value": "3"},
-    {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1"},
-]
-
-RAW_ROW_1 = Raw(
-    date_start=START_DATE_STR,
-    campaign_id=CAMPAIGN_ID,
-    campaign_name=CAMPAIGN_NAME,
-    impressions="1000",
-    clicks="50",
-    spend="25.50",
-    reach="900",
-    frequency="1.11",
-    actions=SAMPLE_ACTIONS,
-)
-
-RAW_ROW_2 = Raw(
-    date_start="2024-01-16",
-    campaign_id="987654321",
-    campaign_name="ABI Summer Enrollment",
-    impressions="2000",
-    clicks="100",
-    spend="50.00",
-    reach="1800",
-    frequency="1.11",
-    actions=[],
-)
-
-API_ROW_1 = {
-    "date_start": START_DATE_STR,
-    "campaign_id": CAMPAIGN_ID,
-    "campaign_name": CAMPAIGN_NAME,
-    "impressions": "1000",
-    "clicks": "50",
-    "spend": "25.50",
-    "reach": "900",
-    "frequency": "1.11",
-    "actions": SAMPLE_ACTIONS_DICTS,
-}
-
-API_ROW_2 = {
-    "date_start": "2024-01-16",
-    "campaign_id": "987654321",
-    "campaign_name": "ABI Summer Enrollment",
-    "impressions": "2000",
-    "clicks": "100",
-    "spend": "50.00",
-    "reach": "1800",
-    "frequency": "1.11",
-    "actions": [],
-}
 
 
 @pytest.fixture
-def raw_rows():
-    """Sample Raw rows."""
-    return [RAW_ROW_1, RAW_ROW_2]
+def api_row() -> dict:
+    """A single Facebook Ads insights row, as _fetch yields it."""
+    return {
+        "date_start": "2024-01-15",
+        "campaign_id": "601",
+        "campaign_name": "Brand",
+        "impressions": "1000",
+        "clicks": "50",
+        "spend": "25.50",
+        "reach": "900",
+        "frequency": "1.11",
+        "actions": [
+            {"action_type": "link_click", "value": "45"},
+            {"action_type": "lead", "value": "3"},
+            {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1"},
+        ],
+    }
 
 
 @pytest.fixture
-def records(raw_rows):
-    """Parsed Records from sample raw rows."""
-    return [parse(r) for r in raw_rows]
-
-
-@pytest.fixture
-def mock_client():
-    """Mocked Facebook Ads API client."""
+def mock_client(api_row: dict) -> MagicMock:
+    """Facebook Ads client returning two campaign rows."""
+    summer = {
+        "date_start": "2024-01-16",
+        "campaign_id": "602",
+        "campaign_name": "Summer",
+        "impressions": "2000",
+        "clicks": "100",
+        "spend": "50.00",
+        "reach": "1800",
+        "frequency": "1.11",
+        "actions": [],
+    }
     client = MagicMock()
-    client.get_insights.return_value = [API_ROW_1, API_ROW_2]
+    client.get_insights.return_value = [api_row, summer]
     return client
 
 
-def test_extract_composes_fetch_parse_to_table(raw_rows):
-    """Result matches manually composing fetch, parse, and to_table."""
-    parsed = [parse(r) for r in raw_rows]
-    expected = to_table(parsed)
+def test_campaign_insight_is_immutable(api_row: dict) -> None:
+    """Tests that CampaignInsight instances cannot be mutated."""
+    result = parse(api_row)
 
-    with patch("sources.facebook_ads.extract.fetch", return_value=raw_rows):
-        result = extract(MagicMock(), START_DATE, END_DATE)
-
-    assert result.equals(expected)
-
-
-def test_extract_returns_pyarrow_table(raw_rows):
-    """Returns a pa.Table instance."""
-    with patch("sources.facebook_ads.extract.fetch", return_value=raw_rows):
-        result = extract(MagicMock(), START_DATE, END_DATE)
-    assert isinstance(result, pa.Table)
-
-
-def test_extract_row_count(raw_rows):
-    """Table has correct number of rows."""
-    with patch("sources.facebook_ads.extract.fetch", return_value=raw_rows):
-        result = extract(MagicMock(), START_DATE, END_DATE)
-    assert result.num_rows == EXPECTED_ROW_COUNT
-
-
-def test_fetch_calls_get_insights_with_correct_params(mock_client):
-    """get_insights called with correct level and time_range."""
-    fetch(mock_client, START_DATE, END_DATE)
-    call_params = mock_client.get_insights.call_args[1]["params"]
-    assert call_params["level"] == "campaign"
-    assert call_params["time_range"]["since"] == START_DATE_STR
-    assert call_params["time_range"]["until"] == START_DATE_STR
-
-
-def test_fetch_returns_list_of_raw(mock_client):
-    """Returns a list of Raw instances."""
-    result = fetch(mock_client, START_DATE, END_DATE)
-    assert all(isinstance(r, Raw) for r in result)
-
-
-def test_fetch_row_count(mock_client):
-    """Returns correct number of rows."""
-    result = fetch(mock_client, START_DATE, END_DATE)
-    assert len(result) == EXPECTED_ROW_COUNT
-
-
-def test_parse_conversions_extracted_from_actions(raw_rows):
-    """Conversions extracted correctly from actions list."""
-    result = parse(raw_rows[0])
-    assert result.conversions == EXPECTED_CONVERSIONS
-
-
-def test_parse_date_converted_to_date_type(raw_rows):
-    """Date string is parsed to date object."""
-    result = parse(raw_rows[0])
-    assert result.date == date(2024, 1, 15)
-
-
-def test_parse_impressions_converted_to_int(raw_rows):
-    """Impressions string is parsed to int."""
-    result = parse(raw_rows[0])
-    assert result.impressions == EXPECTED_IMPRESSIONS
-    assert isinstance(result.impressions, int)
-
-
-def test_parse_leads_extracted_from_actions(raw_rows):
-    """Leads extracted correctly from actions list."""
-    result = parse(raw_rows[0])
-    assert result.leads == EXPECTED_LEADS
-
-
-def test_parse_link_clicks_extracted_from_actions(raw_rows):
-    """link_clicks extracted correctly from actions list."""
-    result = parse(raw_rows[0])
-    assert result.link_clicks == EXPECTED_LINK_CLICKS
-
-
-def test_parse_missing_actions_defaults_to_zero(raw_rows):
-    """Missing actions default to zero for all action fields."""
-    result = parse(raw_rows[1])
-    assert result.link_clicks == 0
-    assert result.leads == 0
-    assert result.conversions == 0
-
-
-def test_parse_record_is_immutable(raw_rows):
-    """Record instances cannot be mutated."""
-    result = parse(raw_rows[0])
     with pytest.raises(ValidationError):
         result.impressions = 999
 
 
-def test_parse_returns_record(raw_rows):
-    """Returns a Record instance."""
-    result = parse(raw_rows[0])
-    assert isinstance(result, Record)
+def test_fetch_sets_time_range_and_level(mock_client: MagicMock) -> None:
+    """Tests that fetch requests campaign-level insights for the date range."""
+    list(_fetch(mock_client, START_DATE, END_DATE))
+
+    params = mock_client.get_insights.call_args.kwargs["params"]
+    assert params["level"] == "campaign"
+    assert params["time_range"]["since"] == "2024-01-15"
+    assert params["time_range"]["until"] == "2024-01-15"
 
 
-def test_parse_spend_converted_to_float(raw_rows):
-    """Spend string is parsed to float."""
-    result = parse(raw_rows[0])
-    assert result.spend_usd == EXPECTED_SPEND
-    assert isinstance(result.spend_usd, float)
+def test_fetch_yields_row_dicts(mock_client: MagicMock) -> None:
+    """Tests that each raw row is yielded as a dict."""
+    rows = list(_fetch(mock_client, START_DATE, END_DATE))
+
+    assert rows[0]["campaign_id"] == "601"
 
 
-def test_raw_is_immutable():
-    """Raw instances cannot be mutated."""
-    with pytest.raises(ValidationError):
-        RAW_ROW_1.date_start = "2024-01-16"
+def test_parse_casts_types(api_row: dict) -> None:
+    """Tests that metrics and date are cast to their typed forms."""
+    expected_impressions = 1000
+    expected_spend = 25.50
+    expected_frequency = 1.11
+
+    result = parse(api_row)
+
+    assert result.date == date(2024, 1, 15)
+    assert result.impressions == expected_impressions
+    assert result.spend_usd == expected_spend
+    assert result.frequency == expected_frequency
 
 
-def test_record_date_validator_accepts_date_object():
-    """Date validator passes through an existing date object unchanged."""
-    existing_date = date(2024, 1, 15)
-    record = Record(
-        date=existing_date,
-        campaign_id=CAMPAIGN_ID,
-        campaign_name=CAMPAIGN_NAME,
-        impressions=EXPECTED_IMPRESSIONS,
-        clicks=EXPECTED_CLICKS,
-        spend_usd=EXPECTED_SPEND,
-        reach=EXPECTED_REACH,
-        frequency=EXPECTED_FREQUENCY,
-        link_clicks=EXPECTED_LINK_CLICKS,
-        leads=EXPECTED_LEADS,
-        conversions=EXPECTED_CONVERSIONS,
-    )
-    assert record.date == existing_date
+def test_parse_explodes_actions_into_columns(api_row: dict) -> None:
+    """Tests that action types are exploded into named integer columns."""
+    expected_link_clicks = 45
+    expected_leads = 3
+    expected_conversions = 1
+
+    result = parse(api_row)
+
+    assert result.link_clicks == expected_link_clicks
+    assert result.leads == expected_leads
+    assert result.conversions == expected_conversions
 
 
-def test_record_invalid_date_raises():
-    """Invalid date string raises ValidationError."""
-    with pytest.raises(ValidationError):
-        Record(
-            date="not-a-date",  # ty: ignore[invalid-argument-type]
-            campaign_id=CAMPAIGN_ID,
-            campaign_name=CAMPAIGN_NAME,
-            impressions=EXPECTED_IMPRESSIONS,
-            clicks=EXPECTED_CLICKS,
-            spend_usd=EXPECTED_SPEND,
-            reach=EXPECTED_REACH,
-            frequency=EXPECTED_FREQUENCY,
-            link_clicks=EXPECTED_LINK_CLICKS,
-            leads=EXPECTED_LEADS,
-            conversions=EXPECTED_CONVERSIONS,
-        )
+def test_parse_fails_loud_on_missing_identity_field(api_row: dict) -> None:
+    """Tests that a missing identity field raises ValueError, not a default."""
+    del api_row["campaign_id"]
+
+    with pytest.raises(ValueError, match="Failed to parse Facebook Ads row"):
+        parse(api_row)
 
 
-def test_to_raw_actions_defaults_to_empty_list():
-    """Absent actions key defaults to empty list."""
-    row_without_actions = {k: v for k, v in API_ROW_1.items() if k != "actions"}
-    result = _to_raw(row_without_actions)
-    assert result.actions == []
-
-
-def test_to_raw_maps_fields_correctly():
-    """All fields mapped correctly from API row dict."""
-    result = _to_raw(API_ROW_1)
-    assert result.date_start == START_DATE_STR
-    assert result.campaign_id == CAMPAIGN_ID
-    assert result.campaign_name == CAMPAIGN_NAME
-    assert result.impressions == "1000"
-    assert result.spend == "25.50"
-    assert result.actions == SAMPLE_ACTIONS
-
-
-def test_to_raw_missing_required_field_raises():
-    """Missing required fields raise KeyError."""
-    with pytest.raises(KeyError):
-        _to_raw({})
-
-
-def test_to_raw_returns_raw_instance():
-    """Returns a Raw instance from an API row dict."""
-    result = _to_raw(API_ROW_1)
-    assert isinstance(result, Raw)
-
-
-def test_to_table_column_count(records):
-    """Table has correct number of columns."""
-    result = to_table(records)
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_to_table_column_names(records):
-    """Table contains expected column names."""
-    result = to_table(records)
-    assert set(result.column_names) == {
-        "date",
-        "campaign_id",
-        "campaign_name",
-        "impressions",
-        "clicks",
-        "spend_usd",
-        "reach",
-        "frequency",
-        "link_clicks",
-        "leads",
-        "conversions",
+def test_parse_guards_missing_metrics() -> None:
+    """Tests that a ragged row missing metric keys defaults them to zero."""
+    ragged_row = {
+        "date_start": "2024-01-15",
+        "campaign_id": "601",
+        "campaign_name": "Brand",
     }
 
+    result = parse(ragged_row)
 
-def test_to_table_date_values_correct(records):
-    """Date column contains correct ISO format values."""
-    result = to_table(records)
-    assert result.column("date").to_pylist() == ["2024-01-15", "2024-01-16"]
-
-
-def test_to_table_empty_records_returns_empty_table():
-    """Empty records list returns empty table."""
-    result = to_table([])
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
+    assert result.impressions == 0
+    assert result.spend_usd == 0.0
+    assert result.link_clicks == 0
+    assert result.conversions == 0
 
 
-def test_to_table_returns_pyarrow_table(records):
-    """Returns a pa.Table instance."""
-    result = to_table(records)
-    assert isinstance(result, pa.Table)
+def test_pipeline_loads_typed_rows(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that the pipeline lands typed, snake_case columns in the destination."""
+    expected_rows = 2
+    expected_first_row = (date(2024, 1, 15), "601", 1000, 25.50)
+    db_path = str(tmp_path / "fb.duckdb")
+    _run_pipeline(mock_client, db_path, str(tmp_path / "dlt"))
+
+    conn = duckdb.connect(db_path)
+    rows = conn.execute(
+        "SELECT date, campaign_id, impressions, spend_usd "
+        "FROM raw.facebook_ads ORDER BY date"
+    ).fetchall()
+
+    assert rows[0] == expected_first_row
+    assert len(rows) == expected_rows
 
 
-def test_to_table_row_count(records):
-    """Table has one row per record."""
-    result = to_table(records)
-    assert result.num_rows == EXPECTED_ROW_COUNT
+def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
+    """Runs the campaign_insights resource into a duckdb destination."""
+    pipeline = dlt.pipeline(
+        pipeline_name="fb_test",
+        destination=dlt.destinations.duckdb(db_path),
+        dataset_name="raw",
+        pipelines_dir=dlt_dir,
+    )
+    pipeline.run(campaign_insights(client, START_DATE, END_DATE))
 
 
-def test_to_table_spend_values_correct(records):
-    """Spend column contains correct float values."""
-    result = to_table(records)
-    assert result.column("spend_usd").to_pylist() == [EXPECTED_SPEND, 50.00]
+def test_pipeline_merge_is_idempotent(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that re-running the same partition upserts rather than duplicating rows."""
+    expected_rows = 2
+    db_path = str(tmp_path / "fb.duckdb")
+    dlt_dir = str(tmp_path / "dlt")
+
+    _run_pipeline(mock_client, db_path, dlt_dir)
+    _run_pipeline(mock_client, db_path, dlt_dir)
+
+    conn = duckdb.connect(db_path)
+    result = conn.execute("SELECT count(*) FROM raw.facebook_ads").fetchone()
+    count = result[0] if result else 0
+
+    assert count == expected_rows

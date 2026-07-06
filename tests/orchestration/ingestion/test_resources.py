@@ -48,15 +48,19 @@ def test_facebook_ads_resource_exposes_ad_account_id():
     assert resource.ad_account_id == MOCK_AD_ACCOUNT_ID
 
 
-def test_facebook_ads_resource_get_client_calls_build_client():
-    """get_client() delegates to fb_client.build_client."""
+def test_facebook_ads_resource_get_client_builds_ad_account():
+    """get_client() inits the API and returns an AdAccount for the account id."""
     resource = FacebookAdsResource(
         access_token=MOCK_ACCESS_TOKEN,
         ad_account_id=MOCK_AD_ACCOUNT_ID,
     )
-    with patch(f"{_RESOURCES_MODULE}.fb_client.build_client") as mock_build:
+    with (
+        patch(f"{_RESOURCES_MODULE}.FacebookAdsApi.init") as mock_init,
+        patch(f"{_RESOURCES_MODULE}.AdAccount") as mock_ad_account,
+    ):
         resource.get_client()
-        mock_build.assert_called_once_with(MOCK_ACCESS_TOKEN, MOCK_AD_ACCOUNT_ID)
+        mock_init.assert_called_once_with(access_token=MOCK_ACCESS_TOKEN)
+        mock_ad_account.assert_called_once_with(MOCK_AD_ACCOUNT_ID)
 
 
 def test_facebook_ads_resource_is_correct_type():
