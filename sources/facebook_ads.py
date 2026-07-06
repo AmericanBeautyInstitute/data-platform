@@ -125,8 +125,7 @@ def _fetch(
     campaign-level pulls. If the account grows many campaigns or the window
     widens, Meta may time out the sync request; switch to the async report
     run (get_insights(..., is_async=True), poll async_status until "Job
-    Completed", then iterate get_result()). Contained entirely to this
-    function -- parse and the resource are unaffected.
+    Completed", then iterate get_result()).
     """
     params = {
         "level": "campaign",
