@@ -164,15 +164,18 @@ def test_paypal_resource_exposes_client_id():
     assert resource.client_id == MOCK_CLIENT_ID
 
 
-def test_paypal_resource_get_client_calls_build_client():
-    """get_client() delegates to paypal_client.build_client."""
+def test_paypal_resource_get_client_builds_rest_client():
+    """get_client() returns a RESTClient authed with PayPal client credentials."""
     resource = PayPalResource(
         client_id=MOCK_CLIENT_ID,
         client_secret=MOCK_CLIENT_SECRET,
     )
-    with patch(f"{_RESOURCES_MODULE}.paypal_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.RESTClient") as mock_rest_client:
         resource.get_client()
-        mock_build.assert_called_once_with(MOCK_CLIENT_ID, MOCK_CLIENT_SECRET)
+
+    auth = mock_rest_client.call_args.kwargs["auth"]
+    assert auth.client_id == MOCK_CLIENT_ID
+    assert auth.client_secret == MOCK_CLIENT_SECRET
 
 
 def test_paypal_resource_is_correct_type():

@@ -3,7 +3,6 @@
 from dagster import Definitions
 
 from orchestration.defs.ingestion.jobs import ingestion_job
-from orchestration.defs.ingestion.paypal import paypal_transactions_raw
 from orchestration.defs.ingestion.resources import (
     bigquery_resource,
     facebook_ads_resource,
@@ -20,7 +19,6 @@ from orchestration.defs.ingestion.stripe import stripe_charges_raw
 
 ingestion_defs = Definitions(
     assets=[
-        paypal_transactions_raw,
         stripe_charges_raw,
     ],
     jobs=[ingestion_job],

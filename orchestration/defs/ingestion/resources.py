@@ -2,6 +2,8 @@
 
 from dagster import ConfigurableResource, EnvVar
 from dagster_gcp import BigQueryResource, GCSResource
+from dlt.sources.helpers.rest_client import RESTClient
+from dlt.sources.helpers.rest_client.auth import OAuth2ClientCredentials
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.api import FacebookAdsApi
 from google.ads.googleads.client import GoogleAdsClient
@@ -10,8 +12,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from stripe import StripeClient
 
-from sources.paypal import client as paypal_client
-from sources.paypal.client import PayPalClient
 from sources.stripe import client as stripe_client
 
 
@@ -77,9 +77,29 @@ class PayPalResource(ConfigurableResource):
     client_id: str
     client_secret: str
 
-    def get_client(self) -> PayPalClient:
-        """Builds and returns an authenticated PayPal REST API client."""
-        return paypal_client.build_client(self.client_id, self.client_secret)
+    def get_client(self) -> RESTClient:
+        """Builds and returns an authenticated PayPal REST client."""
+        base_url = "https://api-m.paypal.com"
+        return RESTClient(
+            base_url=base_url,
+            auth=_PayPalOAuth(
+                access_token_url=f"{base_url}/v1/oauth2/token",
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+            ),
+        )
+
+
+class _PayPalOAuth(OAuth2ClientCredentials):
+    """OAuth2 client-credentials auth that sends PayPal's Basic-auth token request."""
+
+    def build_access_token_request(self) -> dict:
+        """Builds the token request using HTTP Basic auth, as PayPal requires."""
+        return {
+            "headers": {"Accept": "application/json"},
+            "auth": (self.client_id, self.client_secret),
+            "data": {"grant_type": "client_credentials"},
+        }
 
 
 class StripeResource(ConfigurableResource):
