@@ -2,6 +2,7 @@
 
 from dagster import ConfigurableResource, EnvVar
 from dagster_gcp import BigQueryResource, GCSResource
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from googleapiclient.discovery import Resource
 from stripe import StripeClient
 
@@ -9,7 +10,6 @@ from sources.facebook_ads import client as fb_client
 from sources.facebook_ads.client import AdAccount
 from sources.google_ads import client as ads_client
 from sources.google_ads.client import GoogleAdsClient
-from sources.google_analytics import client as ga_client
 from sources.google_sheets import client as sheets_client
 from sources.paypal import client as paypal_client
 from sources.paypal.client import PayPalClient
@@ -40,9 +40,9 @@ class GoogleAnalyticsResource(ConfigurableResource):
     credentials_path: str
     property_id: str
 
-    def get_client(self):
+    def get_client(self) -> BetaAnalyticsDataClient:
         """Builds and returns an authenticated Google Analytics API client."""
-        return ga_client.build_client(self.credentials_path)
+        return BetaAnalyticsDataClient.from_service_account_file(self.credentials_path)
 
 
 class GoogleAdsResource(ConfigurableResource):

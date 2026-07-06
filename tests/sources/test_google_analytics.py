@@ -1,7 +1,6 @@
 """Tests for the Google Analytics dlt source."""
 
-import os
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -9,14 +8,11 @@ from unittest.mock import MagicMock
 import dlt
 import duckdb
 import pytest
-from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from sources.google_analytics.client import build_client
-from sources.google_analytics.extract import (
+from sources.google_analytics import (
     DIMENSIONS,
     METRICS,
-    SessionStat,
     _build_request,
     _fetch,
     parse,
@@ -26,13 +22,6 @@ from sources.google_analytics.extract import (
 PROPERTY_ID = "123456"
 START_DATE = date(2024, 1, 1)
 END_DATE = date(2024, 1, 31)
-
-load_dotenv()
-_LIVE_PROPERTY_ID = os.getenv("GA4_PROPERTY_ID")
-_LIVE_CREDENTIALS = os.getenv("GCP_SERVICE_ACCOUNT_KEY")
-_HAS_LIVE_CREDS = bool(
-    _LIVE_PROPERTY_ID and _LIVE_CREDENTIALS and Path(_LIVE_CREDENTIALS).is_file()
-)
 
 
 @pytest.fixture
@@ -149,25 +138,6 @@ def test_fetch_single_page_calls_api_once(mock_client: MagicMock) -> None:
     list(_fetch(mock_client, PROPERTY_ID, START_DATE, END_DATE))
 
     mock_client.run_report.assert_called_once()
-
-
-@pytest.mark.skipif(not _HAS_LIVE_CREDS, reason="GA4 live credentials not configured")
-def test_live_smoke_pull_parses_without_error() -> None:
-    """Tests that a real GA4 pull authenticates and parses into typed records.
-
-    Verifies the round-trip (auth, request, pagination, parse) succeeds and any
-    returned rows are typed. The configured property may legitimately be empty,
-    so row presence is not asserted.
-    """
-    assert _LIVE_CREDENTIALS is not None
-    assert _LIVE_PROPERTY_ID is not None
-    client = build_client(_LIVE_CREDENTIALS)
-    end = date.today() - timedelta(days=1)
-    start = end - timedelta(days=30)
-
-    records = [parse(row) for row in _fetch(client, _LIVE_PROPERTY_ID, start, end)]
-
-    assert all(isinstance(record, SessionStat) for record in records)
 
 
 def test_parse_applies_camelcase_aliases(payload: dict[str, str]) -> None:

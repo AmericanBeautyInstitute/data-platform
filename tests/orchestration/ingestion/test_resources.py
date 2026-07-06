@@ -21,17 +21,17 @@ from orchestration.defs.ingestion.resources import (
     stripe_resource,
 )
 
-_ING = "orchestration.defs.ingestion"
+_RESOURCES_MODULE = "orchestration.defs.ingestion.resources"
 
-FAKE_CREDENTIALS_PATH = "/tmp/creds.json"
-FAKE_SPREADSHEET_ID = "fake-spreadsheet-id"
-FAKE_PROPERTY_ID = "123456"
-FAKE_CUSTOMER_ID = "1234567890"
-FAKE_ACCESS_TOKEN = "fake-access-token"
-FAKE_AD_ACCOUNT_ID = "act_123456789"
-FAKE_CLIENT_ID = "fake-client-id"
-FAKE_CLIENT_SECRET = "fake-client-secret"
-FAKE_SECRET_KEY = "sk_test_fake"
+MOCK_CREDENTIALS_PATH = "/tmp/creds.json"
+MOCK_SPREADSHEET_ID = "mock-spreadsheet-id"
+MOCK_PROPERTY_ID = "123456"
+MOCK_CUSTOMER_ID = "1234567890"
+MOCK_ACCESS_TOKEN = "mock-access-token"
+MOCK_AD_ACCOUNT_ID = "act_123456789"
+MOCK_CLIENT_ID = "mock-client-id"
+MOCK_CLIENT_SECRET = "mock-client-secret"
+MOCK_SECRET_KEY = "sk_test_mock"
 
 
 def test_bigquery_resource_is_correct_type():
@@ -42,21 +42,21 @@ def test_bigquery_resource_is_correct_type():
 def test_facebook_ads_resource_exposes_ad_account_id():
     """FacebookAdsResource exposes ad_account_id field."""
     resource = FacebookAdsResource(
-        access_token=FAKE_ACCESS_TOKEN,
-        ad_account_id=FAKE_AD_ACCOUNT_ID,
+        access_token=MOCK_ACCESS_TOKEN,
+        ad_account_id=MOCK_AD_ACCOUNT_ID,
     )
-    assert resource.ad_account_id == FAKE_AD_ACCOUNT_ID
+    assert resource.ad_account_id == MOCK_AD_ACCOUNT_ID
 
 
 def test_facebook_ads_resource_get_client_calls_build_client():
     """get_client() delegates to fb_client.build_client."""
     resource = FacebookAdsResource(
-        access_token=FAKE_ACCESS_TOKEN,
-        ad_account_id=FAKE_AD_ACCOUNT_ID,
+        access_token=MOCK_ACCESS_TOKEN,
+        ad_account_id=MOCK_AD_ACCOUNT_ID,
     )
-    with patch(f"{_ING}.resources.fb_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.fb_client.build_client") as mock_build:
         resource.get_client()
-        mock_build.assert_called_once_with(FAKE_ACCESS_TOKEN, FAKE_AD_ACCOUNT_ID)
+        mock_build.assert_called_once_with(MOCK_ACCESS_TOKEN, MOCK_AD_ACCOUNT_ID)
 
 
 def test_facebook_ads_resource_is_correct_type():
@@ -72,21 +72,21 @@ def test_gcs_resource_is_correct_type():
 def test_google_ads_resource_exposes_customer_id():
     """GoogleAdsResource exposes customer_id field."""
     resource = GoogleAdsResource(
-        credentials_path=FAKE_CREDENTIALS_PATH,
-        customer_id=FAKE_CUSTOMER_ID,
+        credentials_path=MOCK_CREDENTIALS_PATH,
+        customer_id=MOCK_CUSTOMER_ID,
     )
-    assert resource.customer_id == FAKE_CUSTOMER_ID
+    assert resource.customer_id == MOCK_CUSTOMER_ID
 
 
 def test_google_ads_resource_get_client_calls_build_client():
     """get_client() delegates to ads_client.build_client."""
     resource = GoogleAdsResource(
-        credentials_path=FAKE_CREDENTIALS_PATH,
-        customer_id=FAKE_CUSTOMER_ID,
+        credentials_path=MOCK_CREDENTIALS_PATH,
+        customer_id=MOCK_CUSTOMER_ID,
     )
-    with patch(f"{_ING}.resources.ads_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.ads_client.build_client") as mock_build:
         resource.get_client()
-        mock_build.assert_called_once_with(FAKE_CREDENTIALS_PATH)
+        mock_build.assert_called_once_with(MOCK_CREDENTIALS_PATH)
 
 
 def test_google_ads_resource_is_correct_type():
@@ -97,21 +97,23 @@ def test_google_ads_resource_is_correct_type():
 def test_google_analytics_resource_exposes_property_id():
     """GoogleAnalyticsResource exposes property_id field."""
     resource = GoogleAnalyticsResource(
-        credentials_path=FAKE_CREDENTIALS_PATH,
-        property_id=FAKE_PROPERTY_ID,
+        credentials_path=MOCK_CREDENTIALS_PATH,
+        property_id=MOCK_PROPERTY_ID,
     )
-    assert resource.property_id == FAKE_PROPERTY_ID
+    assert resource.property_id == MOCK_PROPERTY_ID
 
 
 def test_google_analytics_resource_get_client_calls_build_client():
-    """get_client() delegates to ga_client.build_client."""
+    """get_client() calls BetaAnalyticsDataClient.from_service_account_file."""
     resource = GoogleAnalyticsResource(
-        credentials_path=FAKE_CREDENTIALS_PATH,
-        property_id=FAKE_PROPERTY_ID,
+        credentials_path=MOCK_CREDENTIALS_PATH,
+        property_id=MOCK_PROPERTY_ID,
     )
-    with patch(f"{_ING}.resources.ga_client.build_client") as mock_build:
+    with patch(
+        f"{_RESOURCES_MODULE}.BetaAnalyticsDataClient.from_service_account_file"
+    ) as mock_build:
         resource.get_client()
-        mock_build.assert_called_once_with(FAKE_CREDENTIALS_PATH)
+        mock_build.assert_called_once_with(MOCK_CREDENTIALS_PATH)
 
 
 def test_google_analytics_resource_is_correct_type():
@@ -122,21 +124,21 @@ def test_google_analytics_resource_is_correct_type():
 def test_google_sheets_resource_exposes_spreadsheet_id():
     """GoogleSheetsResource exposes spreadsheet_id field."""
     resource = GoogleSheetsResource(
-        credentials_path=FAKE_CREDENTIALS_PATH,
-        spreadsheet_id=FAKE_SPREADSHEET_ID,
+        credentials_path=MOCK_CREDENTIALS_PATH,
+        spreadsheet_id=MOCK_SPREADSHEET_ID,
     )
-    assert resource.spreadsheet_id == FAKE_SPREADSHEET_ID
+    assert resource.spreadsheet_id == MOCK_SPREADSHEET_ID
 
 
 def test_google_sheets_resource_get_client_calls_build_client():
     """get_client() delegates to sheets_client.build_client."""
     resource = GoogleSheetsResource(
-        credentials_path=FAKE_CREDENTIALS_PATH,
-        spreadsheet_id=FAKE_SPREADSHEET_ID,
+        credentials_path=MOCK_CREDENTIALS_PATH,
+        spreadsheet_id=MOCK_SPREADSHEET_ID,
     )
-    with patch(f"{_ING}.resources.sheets_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.sheets_client.build_client") as mock_build:
         resource.get_client()
-        mock_build.assert_called_once_with(FAKE_CREDENTIALS_PATH)
+        mock_build.assert_called_once_with(MOCK_CREDENTIALS_PATH)
 
 
 def test_google_sheets_resource_is_correct_type():
@@ -147,21 +149,21 @@ def test_google_sheets_resource_is_correct_type():
 def test_paypal_resource_exposes_client_id():
     """PayPalResource exposes client_id field."""
     resource = PayPalResource(
-        client_id=FAKE_CLIENT_ID,
-        client_secret=FAKE_CLIENT_SECRET,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
     )
-    assert resource.client_id == FAKE_CLIENT_ID
+    assert resource.client_id == MOCK_CLIENT_ID
 
 
 def test_paypal_resource_get_client_calls_build_client():
     """get_client() delegates to paypal_client.build_client."""
     resource = PayPalResource(
-        client_id=FAKE_CLIENT_ID,
-        client_secret=FAKE_CLIENT_SECRET,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
     )
-    with patch(f"{_ING}.resources.paypal_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.paypal_client.build_client") as mock_build:
         resource.get_client()
-        mock_build.assert_called_once_with(FAKE_CLIENT_ID, FAKE_CLIENT_SECRET)
+        mock_build.assert_called_once_with(MOCK_CLIENT_ID, MOCK_CLIENT_SECRET)
 
 
 def test_paypal_resource_is_correct_type():
@@ -171,16 +173,16 @@ def test_paypal_resource_is_correct_type():
 
 def test_stripe_resource_exposes_secret_key():
     """StripeResource exposes secret_key field."""
-    resource = StripeResource(secret_key=FAKE_SECRET_KEY)
-    assert resource.secret_key == FAKE_SECRET_KEY
+    resource = StripeResource(secret_key=MOCK_SECRET_KEY)
+    assert resource.secret_key == MOCK_SECRET_KEY
 
 
 def test_stripe_resource_get_client_calls_build_client():
     """get_client() delegates to stripe_client.build_client."""
-    resource = StripeResource(secret_key=FAKE_SECRET_KEY)
-    with patch(f"{_ING}.resources.stripe_client.build_client") as mock_build:
+    resource = StripeResource(secret_key=MOCK_SECRET_KEY)
+    with patch(f"{_RESOURCES_MODULE}.stripe_client.build_client") as mock_build:
         resource.get_client()
-        mock_build.assert_called_once_with(FAKE_SECRET_KEY)
+        mock_build.assert_called_once_with(MOCK_SECRET_KEY)
 
 
 def test_stripe_resource_is_correct_type():
