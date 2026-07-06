@@ -82,15 +82,15 @@ def test_google_ads_resource_exposes_customer_id():
     assert resource.customer_id == MOCK_CUSTOMER_ID
 
 
-def test_google_ads_resource_get_client_calls_build_client():
-    """get_client() delegates to ads_client.build_client."""
+def test_google_ads_resource_get_client_loads_from_storage():
+    """get_client() loads the Google Ads client from the credentials file."""
     resource = GoogleAdsResource(
         credentials_path=MOCK_CREDENTIALS_PATH,
         customer_id=MOCK_CUSTOMER_ID,
     )
-    with patch(f"{_RESOURCES_MODULE}.ads_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.GoogleAdsClient.load_from_storage") as mock_load:
         resource.get_client()
-        mock_build.assert_called_once_with(MOCK_CREDENTIALS_PATH)
+        mock_load.assert_called_once_with(MOCK_CREDENTIALS_PATH)
 
 
 def test_google_ads_resource_is_correct_type():

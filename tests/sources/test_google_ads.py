@@ -1,407 +1,176 @@
-"""Tests for Google Ads extraction."""
+"""Tests for the Google Ads dlt source."""
 
 from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pyarrow as pa
+import dlt
+import duckdb
 import pytest
 from pydantic import ValidationError
 
-from sources.google_ads.extract import (
-    Raw,
-    Record,
-    _flatten_row,
-    _to_raw,
-    extract,
-    fetch,
+from sources.google_ads import (
+    _build_query,
+    _fetch,
+    _flatten,
+    campaign_performance,
     parse,
 )
-from sources.table import to_table
 
 CUSTOMER_ID = "1234567890"
-QUERY = "SELECT segments.date, metrics.clicks FROM customer"
-EXPECTED_ROW_COUNT = 2
-EXPECTED_COLUMN_COUNT = 6
-EXPECTED_CLICKS = 10
-EXPECTED_IMPRESSIONS = 100
-EXPECTED_COST_MICROS = 1500000
-EXPECTED_CONVERSIONS = 2.0
-
-RAW_ROW_1 = Raw(
-    date="2024-01-15",
-    clicks="10",
-    impressions="100",
-    cost_micros="1500000",
-    conversions="2.0",
-    customer_id=CUSTOMER_ID,
-)
-RAW_ROW_2 = Raw(
-    date="2024-01-16",
-    clicks="20",
-    impressions="200",
-    cost_micros="3000000",
-    conversions="4.0",
-    customer_id=CUSTOMER_ID,
-)
-
-FLAT_DICT_1 = {
-    "segments.date": "2024-01-15",
-    "metrics.clicks": "10",
-    "metrics.impressions": "100",
-    "metrics.costMicros": "1500000",
-    "metrics.conversions": "2.0",
-}
-NESTED_DICT_1 = {
-    "segments": {"date": "2024-01-15"},
-    "metrics": {
-        "clicks": "10",
-        "impressions": "100",
-        "costMicros": "1500000",
-        "conversions": "2.0",
-    },
-}
+START_DATE = date(2024, 1, 15)
+END_DATE = date(2024, 1, 15)
 
 
 @pytest.fixture
-def raw_rows():
-    """Sample Raw rows."""
-    return [RAW_ROW_1, RAW_ROW_2]
-
-
-@pytest.fixture
-def records(raw_rows):
-    """Parsed Records from sample raw rows."""
-    return [parse(r) for r in raw_rows]
-
-
-@pytest.fixture
-def mock_client():
-    """Mocked Google Ads API client."""
-    client = MagicMock()
-    mock_row_1 = MagicMock()
-    mock_row_2 = MagicMock()
-    client.get_service.return_value.search.return_value = [mock_row_1, mock_row_2]
-    return client
-
-
-def test_extract_column_count(mock_client):
-    """Table has correct number of columns."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
-
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_extract_column_names(mock_client):
-    """Table contains expected column names."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
-
-    assert set(result.column_names) == {
-        "date",
-        "clicks",
-        "impressions",
-        "cost_micros",
-        "conversions",
-        "customer_id",
+def api_row() -> dict:
+    """A single GoogleAdsRow, as MessageToDict returns it."""
+    return {
+        "customer": {"id": CUSTOMER_ID},
+        "campaign": {"id": "987654321", "name": "Brand"},
+        "segments": {"date": "2024-01-15", "device": "MOBILE"},
+        "metrics": {
+            "impressions": "4210",
+            "clicks": "88",
+            "costMicros": "5230000",
+            "conversions": 3.0,
+        },
     }
 
 
-def test_extract_composes_fetch_parse_to_table(mock_client):
-    """Result matches manually composing fetch, parse, and to_table."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        raw_rows = fetch(mock_client, CUSTOMER_ID, QUERY)
-        parsed = [parse(r) for r in raw_rows]
-        expected = to_table(parsed)
-
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
-
-    assert result.equals(expected)
+@pytest.fixture
+def mock_client(api_row: dict) -> MagicMock:
+    """Google Ads client whose search returns one campaign row."""
+    return _mock_client([api_row])
 
 
-def test_extract_returns_pyarrow_table(mock_client):
-    """Returns a pa.Table instance."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
+def _mock_client(rows: list[dict]) -> MagicMock:
+    """Builds a Google Ads client whose search yields the given rows.
 
-    assert isinstance(result, pa.Table)
-
-
-def test_extract_row_count(mock_client):
-    """Table has correct number of rows."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = extract(mock_client, CUSTOMER_ID, QUERY)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    Each row is wrapped so that row._pb is the dict; tests patch MessageToDict
+    to the identity function, matching how _fetch unwraps the protobuf.
+    """
+    client = MagicMock()
+    client.get_service.return_value.search.return_value = [
+        SimpleNamespace(_pb=row) for row in rows
+    ]
+    return client
 
 
-def test_fetch_calls_google_ads_service(mock_client):
-    """GoogleAdsService search is called with correct args."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        fetch(mock_client, CUSTOMER_ID, QUERY)
+def test_build_query_filters_date_range() -> None:
+    """Tests that the GAQL query filters on the requested date range."""
+    query = _build_query(START_DATE, END_DATE)
 
-    mock_client.get_service.assert_called_once_with("GoogleAdsService")
-    mock_client.get_service.return_value.search.assert_called_once_with(
-        customer_id=CUSTOMER_ID,
-        query=QUERY,
-    )
+    assert "FROM campaign" in query
+    assert "BETWEEN '2024-01-15'" in query
 
 
-def test_fetch_returns_list_of_raw(mock_client):
-    """Returns a list of Raw instances."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = fetch(mock_client, CUSTOMER_ID, QUERY)
-
-    assert all(isinstance(r, Raw) for r in result)
-
-
-def test_fetch_row_count(mock_client):
-    """Returns correct number of rows."""
-    with patch(
-        "sources.google_ads.extract.MessageToDict",
-        return_value=NESTED_DICT_1,
-    ):
-        result = fetch(mock_client, CUSTOMER_ID, QUERY)
-
-    assert len(result) == EXPECTED_ROW_COUNT
-
-
-def test_flatten_row_empty_dict():
-    """Empty dict returns empty dict."""
-    result = _flatten_row({})
-
-    assert result == {}
-
-
-def test_flatten_row_flattens_nested_dict():
-    """Nested dict keys become dot-notation keys."""
-    result = _flatten_row(NESTED_DICT_1)
-
-    assert result == FLAT_DICT_1
-
-
-def test_flatten_row_preserves_top_level_keys():
-    """Top-level non-dict values are preserved as-is."""
-    input_dict = {"customer_id": "123", "segments": {"date": "2024-01-15"}}
-    result = _flatten_row(input_dict)
-
-    assert result["customer_id"] == "123"
-    assert result["segments.date"] == "2024-01-15"
-
-
-def test_flatten_row_raises_on_nested_non_scalar():
-    """Nested dict value raises ValueError."""
-    nested = {"metrics": {"nested_field": {"inner": "value"}}}
-
-    with pytest.raises(ValueError, match="Expected scalar value"):
-        _flatten_row(nested)
-
-
-def test_parse_clicks_converted_to_int(raw_rows):
-    """Clicks string is parsed to int."""
-    result = parse(raw_rows[0])
-
-    assert result.clicks == EXPECTED_CLICKS
-    assert isinstance(result.clicks, int)
-
-
-def test_parse_conversions_converted_to_float(raw_rows):
-    """Conversions string is parsed to float."""
-    result = parse(raw_rows[0])
-
-    assert result.conversions == EXPECTED_CONVERSIONS
-    assert isinstance(result.conversions, float)
-
-
-def test_parse_cost_micros_converted_to_int(raw_rows):
-    """Cost micros string is parsed to int."""
-    result = parse(raw_rows[0])
-
-    assert result.cost_micros == EXPECTED_COST_MICROS
-    assert isinstance(result.cost_micros, int)
-
-
-def test_parse_customer_id_preserved(raw_rows):
-    """Customer ID is preserved as string."""
-    result = parse(raw_rows[0])
-
-    assert result.customer_id == CUSTOMER_ID
-
-
-def test_parse_date_converted_to_date_type(raw_rows):
-    """Date string is parsed to date object."""
-    result = parse(raw_rows[0])
-
-    assert result.date == date(2024, 1, 15)
-
-
-def test_parse_impressions_converted_to_int(raw_rows):
-    """Impressions string is parsed to int."""
-    result = parse(raw_rows[0])
-
-    assert result.impressions == EXPECTED_IMPRESSIONS
-    assert isinstance(result.impressions, int)
-
-
-def test_parse_record_is_immutable(raw_rows):
-    """Record instances cannot be mutated."""
-    result = parse(raw_rows[0])
+def test_campaign_performance_is_immutable(api_row: dict) -> None:
+    """Tests that CampaignPerformance instances cannot be mutated."""
+    result = parse(api_row)
 
     with pytest.raises(ValidationError):
         result.clicks = 999
 
 
-def test_parse_returns_record(raw_rows):
-    """Returns a Record instance."""
-    result = parse(raw_rows[0])
+def test_fetch_yields_row_dicts(mock_client: MagicMock) -> None:
+    """Tests that each GoogleAdsRow is yielded as a dict."""
+    with patch("sources.google_ads.MessageToDict", side_effect=lambda pb: pb):
+        rows = list(_fetch(mock_client, CUSTOMER_ID, START_DATE, END_DATE))
 
-    assert isinstance(result, Record)
-
-
-def test_raw_is_immutable():
-    """Raw instances cannot be mutated."""
-    with pytest.raises(ValidationError):
-        RAW_ROW_1.date = "2024-01-16"
+    assert rows[0]["campaign"]["id"] == "987654321"
 
 
-def test_record_date_validator_accepts_date_object():
-    """Date validator passes through an existing date object unchanged."""
-    existing_date = date(2024, 1, 15)
-    record = Record(
-        date=existing_date,
-        clicks=10,
-        impressions=100,
-        cost_micros=1500000,
-        conversions=2.0,
-        customer_id=CUSTOMER_ID,
+def test_flatten_joins_nested_keys_with_underscore(api_row: dict) -> None:
+    """Tests that nested keys flatten to underscore-joined leaf names."""
+    flat = _flatten(api_row)
+
+    assert flat["campaign_id"] == "987654321"
+    assert flat["segments_date"] == "2024-01-15"
+    assert flat["metrics_costMicros"] == "5230000"
+
+
+def test_parse_casts_types(api_row: dict) -> None:
+    """Tests that metrics and date are cast to their typed forms."""
+    expected_clicks = 88
+    expected_impressions = 4210
+    expected_cost_micros = 5230000
+    expected_conversions = 3.0
+
+    result = parse(api_row)
+
+    assert result.date == date(2024, 1, 15)
+    assert result.clicks == expected_clicks
+    assert result.impressions == expected_impressions
+    assert result.cost_micros == expected_cost_micros
+    assert result.conversions == expected_conversions
+
+
+def test_parse_fails_loud_on_missing_identity_field(api_row: dict) -> None:
+    """Tests that a missing identity field raises ValueError, not a default."""
+    del api_row["campaign"]
+
+    with pytest.raises(ValueError, match="Failed to parse Google Ads row"):
+        parse(api_row)
+
+
+def test_parse_guards_missing_metrics() -> None:
+    """Tests that a row missing the metrics block defaults them to zero."""
+    row = {
+        "customer": {"id": CUSTOMER_ID},
+        "campaign": {"id": "987654321", "name": "Brand"},
+        "segments": {"date": "2024-01-15"},
+    }
+
+    result = parse(row)
+
+    assert result.clicks == 0
+    assert result.impressions == 0
+    assert result.cost_micros == 0
+    assert result.conversions == 0.0
+
+
+def test_pipeline_loads_typed_rows(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that the pipeline lands typed, snake_case columns in the destination."""
+    expected_rows = 1
+    expected_first_row = (date(2024, 1, 15), CUSTOMER_ID, "987654321", 88, 5230000)
+    db_path = str(tmp_path / "ads.duckdb")
+    _run_pipeline(mock_client, db_path, str(tmp_path / "dlt"))
+
+    conn = duckdb.connect(db_path)
+    rows = conn.execute(
+        "SELECT date, customer_id, campaign_id, clicks, cost_micros "
+        "FROM raw.google_ads ORDER BY date"
+    ).fetchall()
+
+    assert rows[0] == expected_first_row
+    assert len(rows) == expected_rows
+
+
+def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
+    """Runs the campaign_performance resource into a duckdb destination."""
+    pipeline = dlt.pipeline(
+        pipeline_name="ads_test",
+        destination=dlt.destinations.duckdb(db_path),
+        dataset_name="raw",
+        pipelines_dir=dlt_dir,
     )
-
-    assert record.date == existing_date
-
-
-def test_record_invalid_clicks_raises():
-    """Non-integer clicks raises ValidationError."""
-    with pytest.raises(ValidationError):
-        Record(
-            date="2024-01-15",  # ty: ignore[invalid-argument-type]
-            clicks="not-an-int",  # ty: ignore[invalid-argument-type]
-            impressions=100,
-            cost_micros=1500000,
-            conversions=2.0,
-            customer_id=CUSTOMER_ID,
-        )
+    with patch("sources.google_ads.MessageToDict", side_effect=lambda pb: pb):
+        pipeline.run(campaign_performance(client, CUSTOMER_ID, START_DATE, END_DATE))
 
 
-def test_record_invalid_date_raises():
-    """Invalid date string raises ValidationError."""
-    with pytest.raises(ValidationError):
-        Record(
-            date="not-a-date",  # ty: ignore[invalid-argument-type]
-            clicks=10,
-            impressions=100,
-            cost_micros=1500000,
-            conversions=2.0,
-            customer_id=CUSTOMER_ID,
-        )
+def test_pipeline_merge_is_idempotent(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that re-running the same partition upserts rather than duplicating rows."""
+    expected_rows = 1
+    db_path = str(tmp_path / "ads.duckdb")
+    dlt_dir = str(tmp_path / "dlt")
 
+    _run_pipeline(mock_client, db_path, dlt_dir)
+    _run_pipeline(mock_client, db_path, dlt_dir)
 
-def test_to_raw_maps_fields_correctly():
-    """All fields mapped correctly from flattened dict."""
-    result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)
+    conn = duckdb.connect(db_path)
+    result = conn.execute("SELECT count(*) FROM raw.google_ads").fetchone()
+    count = result[0] if result else 0
 
-    assert result.date == "2024-01-15"
-    assert result.clicks == "10"
-    assert result.impressions == "100"
-    assert result.cost_micros == "1500000"
-    assert result.conversions == "2.0"
-    assert result.customer_id == CUSTOMER_ID
-
-
-def test_to_raw_missing_key_raises():
-    """Missing expected key raises KeyError."""
-    incomplete_dict = {"segments.date": "2024-01-15"}
-
-    with pytest.raises(KeyError):
-        _to_raw(incomplete_dict, CUSTOMER_ID)
-
-
-def test_to_raw_returns_raw_instance():
-    """Returns a Raw instance."""
-    result = _to_raw(FLAT_DICT_1, CUSTOMER_ID)
-
-    assert isinstance(result, Raw)
-
-
-def test_to_table_clicks_values_correct(records):
-    """Clicks column contains correct integer values."""
-    result = to_table(records)
-
-    assert result.column("clicks").to_pylist() == [EXPECTED_CLICKS, 20]
-
-
-def test_to_table_column_count(records):
-    """Table has correct number of columns."""
-    result = to_table(records)
-
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
-
-
-def test_to_table_cost_micros_values_correct(records):
-    """Cost micros column contains correct integer values."""
-    result = to_table(records)
-
-    assert result.column("cost_micros").to_pylist() == [EXPECTED_COST_MICROS, 3000000]
-
-
-def test_to_table_date_values_correct(records):
-    """Date column contains correct ISO format values."""
-    result = to_table(records)
-
-    assert result.column("date").to_pylist() == ["2024-01-15", "2024-01-16"]
-
-
-def test_to_table_empty_records_returns_empty_table():
-    """Empty records list returns empty table."""
-    result = to_table([])
-
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
-
-
-def test_to_table_returns_pyarrow_table(records):
-    """Returns a pa.Table instance."""
-    result = to_table(records)
-
-    assert isinstance(result, pa.Table)
-
-
-def test_to_table_row_count(records):
-    """Table has one row per record."""
-    result = to_table(records)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    assert count == expected_rows

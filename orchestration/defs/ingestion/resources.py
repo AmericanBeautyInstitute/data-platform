@@ -4,13 +4,12 @@ from dagster import ConfigurableResource, EnvVar
 from dagster_gcp import BigQueryResource, GCSResource
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.api import FacebookAdsApi
+from google.ads.googleads.client import GoogleAdsClient
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from stripe import StripeClient
 
-from sources.google_ads import client as ads_client
-from sources.google_ads.client import GoogleAdsClient
 from sources.paypal import client as paypal_client
 from sources.paypal.client import PayPalClient
 from sources.stripe import client as stripe_client
@@ -57,7 +56,7 @@ class GoogleAdsResource(ConfigurableResource):
 
     def get_client(self) -> GoogleAdsClient:
         """Builds and returns an authenticated Google Ads API client."""
-        return ads_client.build_client(self.credentials_path)
+        return GoogleAdsClient.load_from_storage(self.credentials_path)
 
 
 class FacebookAdsResource(ConfigurableResource):
