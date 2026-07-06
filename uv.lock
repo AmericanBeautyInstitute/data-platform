@@ -778,7 +778,7 @@ dependencies = [
     { name = "dagster-gcp" },
     { name = "dagster-graphql" },
     { name = "dagster-sqlmesh" },
-    { name = "dlt" },
+    { name = "dlt", extra = ["parquet"] },
     { name = "facebook-business" },
     { name = "fastapi" },
     { name = "google-ads" },
@@ -788,7 +788,6 @@ dependencies = [
     { name = "google-cloud-bigquery" },
     { name = "google-cloud-secret-manager" },
     { name = "google-cloud-storage" },
-    { name = "pyarrow" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "sqlmesh", extra = ["bigquery"] },
@@ -821,7 +820,7 @@ requires-dist = [
     { name = "dagster-gcp", specifier = ">=0.28.22" },
     { name = "dagster-graphql", specifier = ">=1.12.22" },
     { name = "dagster-sqlmesh", specifier = ">=0.22.0" },
-    { name = "dlt", specifier = ">=1.28.1" },
+    { name = "dlt", extras = ["parquet"], specifier = ">=1.28.1" },
     { name = "facebook-business", specifier = ">=25.0.1" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "google-ads", specifier = ">=28.2.0" },
@@ -831,7 +830,6 @@ requires-dist = [
     { name = "google-cloud-bigquery", specifier = ">=3.38.0" },
     { name = "google-cloud-secret-manager", specifier = ">=2.27.0" },
     { name = "google-cloud-storage", specifier = ">=2.19.0" },
-    { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "pydantic-settings", specifier = ">=2.9.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "sqlmesh", extras = ["bigquery"], specifier = ">=0.233.0" },
@@ -943,6 +941,9 @@ wheels = [
 [package.optional-dependencies]
 duckdb = [
     { name = "duckdb" },
+]
+parquet = [
+    { name = "pyarrow" },
 ]
 
 [[package]]
