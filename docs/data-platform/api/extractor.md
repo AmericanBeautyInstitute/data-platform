@@ -62,7 +62,7 @@ Takes source-specific credentials (API key, OAuth tokens, service account path) 
 
 ## Shared Utility
 
-### `extract.table.to_table(records) → pa.Table`
+### `sources.table.to_table(records) → pa.Table`
 
 Converts a list of Pydantic `BaseModel` instances to a PyArrow table.
 

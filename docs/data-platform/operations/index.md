@@ -8,7 +8,7 @@ Dagster runs as two systemd services on the `dagster-daemon` VM. A timer-based h
 
 | Unit | Type | Description |
 |------|------|-------------|
-| `dagster-code` | `simple` | gRPC code server on `127.0.0.1:4266`. Loads asset definitions from `assets.definitions`. |
+| `dagster-code` | `simple` | gRPC code server on `127.0.0.1:4266`. Loads asset definitions from `orchestration.definitions`. |
 | `dagster` | `simple` | Dagster daemon. Schedules and executes runs. Depends on `dagster-code`. |
 | `dagster-healthcheck` | `oneshot` | Checks that both services are active. |
 | `dagster-healthcheck.timer` | `timer` | Triggers the health check every 5 minutes (first run 2 minutes after boot). |

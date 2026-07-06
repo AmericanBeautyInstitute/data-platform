@@ -1,0 +1,80 @@
+"""Google Analytics ingestion asset."""
+
+import uuid
+from datetime import datetime
+
+from dagster import AssetExecutionContext, asset
+from dagster_gcp import BigQueryResource, GCSResource
+
+from load.bigquery import load as bq_load
+from load.config import BigQueryConfig, GCSConfig
+from load.gcs import load as gcs_load
+from orchestration.defs.ingestion.resources import (
+    GoogleAnalyticsResource,
+    IngestionConfig,
+)
+from orchestration.defs.ingestion.schedules import daily_partitions
+from sources.google_analytics import extract as ga_extract
+from sources.google_analytics.extract import ReportConfig
+
+DATASET = "raw"
+TABLE = "google_analytics"
+REPORT_CONFIG = ReportConfig(
+    dimension_names=["date", "sessionSource", "sessionMedium", "country"],
+    metric_names=["sessions", "screenPageViews", "bounceRate", "conversions"],
+)
+
+
+@asset(
+    name="google_analytics_raw",
+    partitions_def=daily_partitions,
+    group_name="ingestion",
+)
+def google_analytics_raw(
+    context: AssetExecutionContext,
+    gcs: GCSResource,
+    bigquery: BigQueryResource,
+    google_analytics: GoogleAnalyticsResource,
+    ingestion_env: IngestionConfig,
+) -> None:
+    """Extracts Google Analytics data and loads it into GCS and BigQuery."""
+    partition_date = datetime.strptime(context.partition_key, "%Y-%m-%d").date()
+    run_id = str(uuid.uuid4())
+    date_str = partition_date.isoformat()
+
+    client = google_analytics.get_client()
+    table = ga_extract.extract(
+        client,
+        google_analytics.property_id,
+        partition_date,
+        partition_date,
+        REPORT_CONFIG,
+    )
+
+    if table.num_rows == 0:
+        context.log.warning(f"Zero rows extracted for {partition_date}")
+        return
+
+    gcs_config = GCSConfig(
+        bucket=ingestion_env.bucket,
+        source=TABLE,
+        partition_date=partition_date,
+        run_id=run_id,
+    )
+    gcs_uri = gcs_load.load(table, gcs_config, gcs.get_client())
+
+    bq_config = BigQueryConfig(
+        project=ingestion_env.project,
+        dataset=DATASET,
+        table=TABLE,
+        partition_date=partition_date,
+    )
+    rows_loaded = bq_load.load(gcs_uri, bq_config, bigquery.get_client())
+
+    context.add_output_metadata(
+        {
+            "rows_loaded": rows_loaded,
+            "gcs_uri": gcs_uri,
+            "partition_date": date_str,
+        }
+    )
