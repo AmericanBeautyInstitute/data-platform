@@ -4,8 +4,6 @@ from dagster import Definitions
 
 from orchestration.defs.ingestion.facebook_ads import facebook_ads_raw
 from orchestration.defs.ingestion.google_ads import google_ads_raw
-from orchestration.defs.ingestion.google_analytics import google_analytics_raw
-from orchestration.defs.ingestion.google_sheets import google_sheets_assets
 from orchestration.defs.ingestion.jobs import ingestion_job
 from orchestration.defs.ingestion.paypal import paypal_transactions_raw
 from orchestration.defs.ingestion.resources import (
@@ -26,10 +24,8 @@ ingestion_defs = Definitions(
     assets=[
         facebook_ads_raw,
         google_ads_raw,
-        google_analytics_raw,
         paypal_transactions_raw,
         stripe_charges_raw,
-        *google_sheets_assets,
     ],
     jobs=[ingestion_job],
     schedules=[daily_schedule],

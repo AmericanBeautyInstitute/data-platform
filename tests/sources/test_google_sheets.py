@@ -1,207 +1,138 @@
-"""Tests for Google Sheets extraction."""
+"""Tests for the Google Sheets dlt source."""
 
+from datetime import date
+from pathlib import Path
 from unittest.mock import MagicMock
 
-import pyarrow as pa
+import dlt
+import duckdb
 import pytest
-from pydantic import ValidationError
 
-from sources.google_sheets.extract import Raw, Record, extract, fetch, parse
+from sources.google_sheets import (
+    _fetch,
+    inventory,
+    programs,
+    students,
+)
 
-
-def to_table(records: list[Record]) -> pa.Table:
-    """Replicates the old to_table for test assertions."""
-    return pa.Table.from_pylist([record.data for record in records])
-
-
-SPREADSHEET_ID = "test-spreadsheet-id"
-SHEET_NAME = "Sheet1"
-HEADERS = ["name", "age", "city"]
-ROWS = [
-    ["Alice", "25", "Tokyo"],
-    ["Bob", "30", "New York"],
-    ["Relena", "35", "Paris"],
-]
-EXPECTED_ROW_COUNT = 3
-EXPECTED_COLUMN_COUNT = 3
+SPREADSHEET_ID = "mock-spreadsheet-id"
+SNAPSHOT_DATE = date(2024, 1, 1)
 
 
 @pytest.fixture
-def mock_client():
-    """Mocked Google Sheets API client."""
+def mock_client() -> MagicMock:
+    """Sheets API client returning two rows with name and status columns."""
+    return _mock_client([["name", "status"], ["Alice", "active"], ["Bob", "inactive"]])
+
+
+def _mock_client(values: list) -> MagicMock:
+    """Builds a Sheets API client returning the given values."""
     client = MagicMock()
-    client.spreadsheets().values().get().execute.return_value = {
-        "values": [HEADERS, *ROWS]
-    }
+    client.spreadsheets().values().get().execute.return_value = {"values": values}
     return client
 
 
-@pytest.fixture
-def raw():
-    """A Raw instance with sample sheet data."""
-    return Raw(headers=HEADERS, rows=ROWS)
+def test_fetch_handles_short_rows() -> None:
+    """Tests that rows shorter than the header are zipped without error."""
+    client = _mock_client([["name", "status"], ["Alice"]])
+
+    rows = list(_fetch(client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
+
+    assert rows[0] == {"name": "Alice", "snapshot_date": SNAPSHOT_DATE.isoformat()}
 
 
-@pytest.fixture
-def records(raw):
-    """Parsed Records from sample raw data."""
-    return parse(raw)
+def test_fetch_keys_rows_by_header(mock_client: MagicMock) -> None:
+    """Tests that each row is a dict keyed by the header row."""
+    rows = list(_fetch(mock_client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
+
+    assert rows[0]["name"] == "Alice"
+    assert rows[0]["status"] == "active"
 
 
-def test_extract_column_names_correct(mock_client):
-    """Table has correct column names."""
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+def test_fetch_returns_empty_for_empty_sheet() -> None:
+    """Tests that an empty sheet yields no rows."""
+    client = _mock_client([])
 
-    assert result.column_names == HEADERS
+    rows = list(_fetch(client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
 
-
-def test_extract_composes_fetch_parse_to_table(mock_client):
-    """Result matches manually composing fetch, parse, and to_table."""
-    raw = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
-    records = parse(raw)
-    expected = to_table(records)
-
-    mock_client.spreadsheets().values().get().execute.return_value = {
-        "values": [HEADERS, *ROWS]
-    }
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.equals(expected)
+    assert rows == []
 
 
-def test_extract_returns_pyarrow_table(mock_client):
-    """Returns a pa.Table instance."""
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
+def test_fetch_stamps_snapshot_date(mock_client: MagicMock) -> None:
+    """Tests that each row carries snapshot_date as an ISO string."""
+    expected_date = SNAPSHOT_DATE.isoformat()
 
-    assert isinstance(result, pa.Table)
+    rows = list(_fetch(mock_client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
 
-
-def test_extract_row_count_correct(mock_client):
-    """Table has correct number of rows."""
-    result = extract(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    assert all(row["snapshot_date"] == expected_date for row in rows)
 
 
-def test_fetch_calls_api_with_correct_args(mock_client):
-    """API called with correct spreadsheet ID and range."""
-    fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+def test_inventory_uses_inventory_sheet_name(mock_client: MagicMock) -> None:
+    """Tests that inventory passes 'inventory' as the range to the Sheets API."""
+    list(inventory(mock_client, SPREADSHEET_ID, SNAPSHOT_DATE))
 
     mock_client.spreadsheets().values().get.assert_called_with(
-        spreadsheetId=SPREADSHEET_ID,
-        range=SHEET_NAME,
+        spreadsheetId=SPREADSHEET_ID, range="inventory"
     )
 
 
-def test_fetch_empty_sheet_raises(mock_client):
-    """Empty sheet raises ValueError with spreadsheet and sheet context."""
-    mock_client.spreadsheets().values().get().execute.return_value = {"values": []}
+def test_pipeline_appends_on_second_run(mock_client: MagicMock, tmp_path: Path) -> None:
+    """Tests that a second run appends rows rather than replacing them."""
+    expected_rows = 4
+    db_path = str(tmp_path / "sheets.duckdb")
+    dlt_dir = str(tmp_path / "dlt")
 
-    with pytest.raises(ValueError, match=SHEET_NAME):
-        fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
+    _run_pipeline(mock_client, db_path, dlt_dir)
+    _run_pipeline(mock_client, db_path, dlt_dir)
 
+    conn = duckdb.connect(db_path)
+    result = conn.execute("SELECT count(*) FROM raw.students").fetchone()
+    count = result[0] if result else 0
 
-def test_fetch_headers_extracted_correctly(mock_client):
-    """First row becomes headers."""
-    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.headers == HEADERS
-
-
-def test_fetch_returns_raw_instance(mock_client):
-    """Returns a Raw instance."""
-    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert isinstance(result, Raw)
+    assert count == expected_rows
 
 
-def test_fetch_rows_exclude_header(mock_client):
-    """Rows do not include the header row."""
-    result = fetch(mock_client, SPREADSHEET_ID, SHEET_NAME)
-
-    assert result.rows == ROWS
-
-
-def test_parse_empty_rows_returns_empty_list():
-    """Empty rows produces empty list."""
-    raw = Raw(headers=HEADERS, rows=[])
-
-    result = parse(raw)
-
-    assert result == []
+def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
+    """Runs the students resource into a duckdb destination."""
+    pipeline = dlt.pipeline(
+        pipeline_name="sheets_test",
+        destination=dlt.destinations.duckdb(db_path),
+        dataset_name="raw",
+        pipelines_dir=dlt_dir,
+    )
+    pipeline.run(students(client, SPREADSHEET_ID, SNAPSHOT_DATE))
 
 
-def test_parse_record_count_matches_rows(raw):
-    """One Record produced per row."""
-    result = parse(raw)
+def test_pipeline_loads_rows_with_snapshot_date(
+    mock_client: MagicMock, tmp_path: Path
+) -> None:
+    """Tests that the pipeline lands rows with snapshot_date in the destination."""
+    expected_rows = 2
+    db_path = str(tmp_path / "sheets.duckdb")
+    _run_pipeline(mock_client, db_path, str(tmp_path / "dlt"))
 
-    assert len(result) == EXPECTED_ROW_COUNT
+    conn = duckdb.connect(db_path)
+    rows = conn.execute(
+        "SELECT name, snapshot_date FROM raw.students ORDER BY name"
+    ).fetchall()
 
-
-def test_parse_record_data_maps_headers_to_values(raw):
-    """Record data correctly maps headers to row values."""
-    result = parse(raw)
-
-    assert result[0].data == {"name": "Alice", "age": "25", "city": "Tokyo"}
-    assert result[1].data == {"name": "Bob", "age": "30", "city": "New York"}
-    assert result[2].data == {"name": "Relena", "age": "35", "city": "Paris"}
-
-
-def test_parse_records_are_immutable(raw):
-    """Record instances cannot be mutated."""
-    result = parse(raw)
-
-    with pytest.raises(ValidationError):
-        result[0].data = {}
+    assert len(rows) == expected_rows
+    assert rows[0] == ("Alice", SNAPSHOT_DATE.isoformat())
 
 
-def test_parse_returns_list_of_records(raw):
-    """Returns a list of Record instances."""
-    result = parse(raw)
+def test_programs_uses_programs_sheet_name(mock_client: MagicMock) -> None:
+    """Tests that programs passes 'programs' as the range to the Sheets API."""
+    list(programs(mock_client, SPREADSHEET_ID, SNAPSHOT_DATE))
 
-    assert all(isinstance(r, Record) for r in result)
-
-
-def test_to_table_column_count_matches_headers(records):
-    """Table has one column per header."""
-    result = to_table(records)
-
-    assert result.num_columns == EXPECTED_COLUMN_COUNT
+    mock_client.spreadsheets().values().get.assert_called_with(
+        spreadsheetId=SPREADSHEET_ID, range="programs"
+    )
 
 
-def test_to_table_column_names_match_headers(records):
-    """Column names match sheet headers."""
-    result = to_table(records)
+def test_students_uses_students_sheet_name(mock_client: MagicMock) -> None:
+    """Tests that students passes 'students' as the range to the Sheets API."""
+    list(students(mock_client, SPREADSHEET_ID, SNAPSHOT_DATE))
 
-    assert result.column_names == HEADERS
-
-
-def test_to_table_column_values_correct(records):
-    """Column values match original sheet data."""
-    result = to_table(records)
-
-    assert result.column("name").to_pylist() == ["Alice", "Bob", "Relena"]
-    assert result.column("age").to_pylist() == ["25", "30", "35"]
-    assert result.column("city").to_pylist() == ["Tokyo", "New York", "Paris"]
-
-
-def test_to_table_empty_records_returns_empty_table():
-    """Empty records list returns empty table."""
-    result = to_table([])
-
-    assert isinstance(result, pa.Table)
-    assert result.num_rows == 0
-
-
-def test_to_table_returns_pyarrow_table(records):
-    """Returns a pa.Table instance."""
-    result = to_table(records)
-
-    assert isinstance(result, pa.Table)
-
-
-def test_to_table_row_count_matches_records(records):
-    """Table has one row per record."""
-    result = to_table(records)
-
-    assert result.num_rows == EXPECTED_ROW_COUNT
+    mock_client.spreadsheets().values().get.assert_called_with(
+        spreadsheetId=SPREADSHEET_ID, range="students"
+    )

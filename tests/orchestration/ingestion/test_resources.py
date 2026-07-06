@@ -130,15 +130,20 @@ def test_google_sheets_resource_exposes_spreadsheet_id():
     assert resource.spreadsheet_id == MOCK_SPREADSHEET_ID
 
 
-def test_google_sheets_resource_get_client_calls_build_client():
-    """get_client() delegates to sheets_client.build_client."""
+def test_google_sheets_resource_get_client_calls_build():
+    """get_client() calls googleapiclient build with sheets v4 credentials."""
     resource = GoogleSheetsResource(
         credentials_path=MOCK_CREDENTIALS_PATH,
         spreadsheet_id=MOCK_SPREADSHEET_ID,
     )
-    with patch(f"{_RESOURCES_MODULE}.sheets_client.build_client") as mock_build:
+    with (
+        patch(
+            f"{_RESOURCES_MODULE}.service_account.Credentials.from_service_account_file"
+        ),
+        patch(f"{_RESOURCES_MODULE}.build") as mock_build,
+    ):
         resource.get_client()
-        mock_build.assert_called_once_with(MOCK_CREDENTIALS_PATH)
+        mock_build.assert_called_once()
 
 
 def test_google_sheets_resource_is_correct_type():

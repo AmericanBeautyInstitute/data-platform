@@ -3,14 +3,14 @@
 from dagster import ConfigurableResource, EnvVar
 from dagster_gcp import BigQueryResource, GCSResource
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
-from googleapiclient.discovery import Resource
+from google.oauth2 import service_account
+from googleapiclient.discovery import Resource, build
 from stripe import StripeClient
 
 from sources.facebook_ads import client as fb_client
 from sources.facebook_ads.client import AdAccount
 from sources.google_ads import client as ads_client
 from sources.google_ads.client import GoogleAdsClient
-from sources.google_sheets import client as sheets_client
 from sources.paypal import client as paypal_client
 from sources.paypal.client import PayPalClient
 from sources.stripe import client as stripe_client
@@ -31,7 +31,11 @@ class GoogleSheetsResource(ConfigurableResource):
 
     def get_client(self) -> Resource:
         """Builds and returns an authenticated Google Sheets API client."""
-        return sheets_client.build_client(self.credentials_path)
+        creds = service_account.Credentials.from_service_account_file(
+            self.credentials_path,
+            scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+        )
+        return build("sheets", "v4", credentials=creds)
 
 
 class GoogleAnalyticsResource(ConfigurableResource):
