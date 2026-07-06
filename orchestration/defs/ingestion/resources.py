@@ -12,8 +12,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from stripe import StripeClient
 
-from sources.stripe import client as stripe_client
-
 
 class IngestionConfig(ConfigurableResource):
     """Shared GCP project and bucket config for all ingestion assets."""
@@ -109,7 +107,7 @@ class StripeResource(ConfigurableResource):
 
     def get_client(self) -> StripeClient:
         """Builds and returns an authenticated Stripe API client."""
-        return stripe_client.build_client(self.secret_key)
+        return StripeClient(self.secret_key)
 
 
 ingestion_env = IngestionConfig(

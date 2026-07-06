@@ -15,12 +15,9 @@ from orchestration.defs.ingestion.resources import (
     stripe_resource,
 )
 from orchestration.defs.ingestion.schedules import daily_schedule
-from orchestration.defs.ingestion.stripe import stripe_charges_raw
 
 ingestion_defs = Definitions(
-    assets=[
-        stripe_charges_raw,
-    ],
+    assets=[],
     jobs=[ingestion_job],
     schedules=[daily_schedule],
     resources={

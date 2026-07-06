@@ -189,12 +189,12 @@ def test_stripe_resource_exposes_secret_key():
     assert resource.secret_key == MOCK_SECRET_KEY
 
 
-def test_stripe_resource_get_client_calls_build_client():
-    """get_client() delegates to stripe_client.build_client."""
+def test_stripe_resource_get_client_builds_stripe_client():
+    """get_client() constructs a StripeClient with the secret key."""
     resource = StripeResource(secret_key=MOCK_SECRET_KEY)
-    with patch(f"{_RESOURCES_MODULE}.stripe_client.build_client") as mock_build:
+    with patch(f"{_RESOURCES_MODULE}.StripeClient") as mock_stripe_client:
         resource.get_client()
-        mock_build.assert_called_once_with(MOCK_SECRET_KEY)
+        mock_stripe_client.assert_called_once_with(MOCK_SECRET_KEY)
 
 
 def test_stripe_resource_is_correct_type():
