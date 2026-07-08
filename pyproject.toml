@@ -41,9 +41,6 @@ dev = [
     "ruff>=0.12.0",
     "ty>=0.0.29",
 ]
-docs = [
-    "mkdocs-material>=9.6.22",
-]
 
 [tool.coverage.run]
 branch = true
