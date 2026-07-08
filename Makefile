@@ -16,9 +16,6 @@ lint:
 reformat:
 	uv run ruff format .
 
-serve:
-	uv run mkdocs serve
-
 setup:
 	uv sync --all-groups
 	uv run pre-commit install --install-hooks
@@ -28,15 +25,6 @@ test:
 
 type_check:
 	uv run ty check tests
-
-################################################################################
-
-docs:
-	mkdir -p scratch/tmp/site
-	uv run mkdocs build --clean -d scratch/tmp/site
-
-serve:
-	uv run mkdocs serve
 
 ################################################################################
 
@@ -62,7 +50,6 @@ deploy:
 	help \
 	lint \
 	reformat \
-	serve \
 	setup \
 	ssh \
 	test \
