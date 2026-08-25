@@ -28,6 +28,12 @@ type_check:
 
 ################################################################################
 
+mutate:
+	uv run mutmut run
+	uv run mutmut results
+
+################################################################################
+
 ssh:
 	gcloud compute ssh dagster-daemon \
 		--zone=us-east1-b \
@@ -49,6 +55,7 @@ deploy:
 	docs \
 	help \
 	lint \
+	mutate \
 	reformat \
 	setup \
 	ssh \

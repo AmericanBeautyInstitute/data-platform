@@ -6,6 +6,7 @@
 /dist
 /venv
 /scratch/*
+/mutants
 
 # Patterns
 __pycache__

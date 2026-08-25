@@ -34,6 +34,7 @@ dev = [
     "dagster-webserver>=1.12.22",
     "dlt[duckdb]>=1.28.1",
     "httpx>=0.28.0",
+    "mutmut>=3.7.0",
     "pre-commit>=4.3.0",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
@@ -53,8 +54,9 @@ fail_under = 0
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.setuptools]
-packages = []
+[tool.mutmut]
+source_paths = ["api", "config", "orchestration", "sources"]
+pytest_add_cli_args_test_selection = ["tests"]
 
 [tool.dg]
 directory_type = "project"
