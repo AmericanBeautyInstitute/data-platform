@@ -1,7 +1,0 @@
-[run]
-source =
-    assets
-    extract
-    load
-    transform
-branch = True

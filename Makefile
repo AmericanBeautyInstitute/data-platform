@@ -21,7 +21,7 @@ setup:
 	uv run pre-commit install --install-hooks
 
 test:
-	uv run pytest -x --cov
+	uv run pytest --cov
 
 type_check:
 	uv run ty check tests

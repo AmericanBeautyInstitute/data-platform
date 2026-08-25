@@ -45,7 +45,7 @@ dev = [
 
 [tool.coverage.run]
 branch = true
-source = ["data-platform"]
+source = ["api", "clients", "config", "orchestration", "sources", "transform"]
 
 [tool.coverage.report]
 show_missing = true
