@@ -1,13 +1,15 @@
 """Tests for the Stripe dlt source."""
 
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
-from unittest.mock import MagicMock
+from typing import Any
 
 import dlt
 import duckdb
 import pytest
 from pydantic import ValidationError
+from pytest_mock import MockerFixture
 
 from sources.stripe import (
     _fetch,
@@ -38,15 +40,19 @@ def charge() -> dict:
 
 
 @pytest.fixture
-def mock_client(charge: dict) -> MagicMock:
+def mock_client(charge: dict, mocker: MockerFixture) -> Any:
     """Stripe client whose charges.list returns one page of one charge."""
-    return _mock_client([charge])
+    return _mock_client(mocker, [charge])
 
 
-def _mock_client(page: list[dict], has_more: bool = False) -> MagicMock:
-    """Builds a Stripe client returning one charges.list page."""
-    client = MagicMock()
-    response = MagicMock()
+def _mock_client(
+    mocker: MockerFixture,
+    page: list[dict],
+    has_more: bool = False,
+) -> Any:
+    """Returns a mocked Stripe client with one response page."""
+    client = mocker.MagicMock()
+    response = mocker.MagicMock()
     response.data = page
     response.has_more = has_more
     client.charges.list.return_value = response
@@ -58,16 +64,19 @@ def test_charge_is_immutable(charge: dict) -> None:
     result = parse(charge)
 
     with pytest.raises(ValidationError):
-        result.gross_amount_usd = 999.0
+        result.gross_amount_usd = Decimal("999.00")
 
 
-def test_fetch_paginates_with_cursor(charge: dict) -> None:
+def test_fetch_paginates_with_cursor(
+    charge: dict,
+    mocker: MockerFixture,
+) -> None:
     """Tests that fetch follows the starting_after cursor across pages."""
     expected_rows = 2
     second = {**charge, "id": "ch_456"}
-    client = MagicMock()
-    first_page = MagicMock(data=[charge], has_more=True)
-    second_page = MagicMock(data=[second], has_more=False)
+    client = mocker.MagicMock()
+    first_page = mocker.MagicMock(data=[charge], has_more=True)
+    second_page = mocker.MagicMock(data=[second], has_more=False)
     client.charges.list.side_effect = [first_page, second_page]
 
     rows = list(_fetch(client, START_DATE, END_DATE))
@@ -77,7 +86,7 @@ def test_fetch_paginates_with_cursor(charge: dict) -> None:
     assert second_call.kwargs["params"]["starting_after"] == "ch_123"
 
 
-def test_fetch_single_page_lists_once(mock_client: MagicMock) -> None:
+def test_fetch_single_page_lists_once(mock_client: Any) -> None:
     """Tests that a single page of charges issues one API call."""
     list(_fetch(mock_client, START_DATE, END_DATE))
 
@@ -86,9 +95,9 @@ def test_fetch_single_page_lists_once(mock_client: MagicMock) -> None:
 
 def test_parse_casts_amounts_and_date(charge: dict) -> None:
     """Tests that cents are converted to dollars and the timestamp to a date."""
-    expected_gross = 100.00
-    expected_fee = 3.20
-    expected_net = 96.80
+    expected_gross = Decimal("100.00")
+    expected_fee = Decimal("3.20")
+    expected_net = Decimal("96.80")
 
     result = parse(charge)
 
@@ -119,7 +128,7 @@ def test_parse_fails_loud_on_missing_id(charge: dict) -> None:
         parse(charge)
 
 
-def test_pipeline_loads_typed_rows(mock_client: MagicMock, tmp_path: Path) -> None:
+def test_pipeline_loads_typed_rows(mock_client: Any, tmp_path: Path) -> None:
     """Tests that the pipeline lands typed columns in the destination."""
     expected_rows = 1
     expected_first_row = ("ch_123", date(2024, 1, 15), 100.00, 3.20)
@@ -136,7 +145,7 @@ def test_pipeline_loads_typed_rows(mock_client: MagicMock, tmp_path: Path) -> No
     assert len(rows) == expected_rows
 
 
-def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
+def _run_pipeline(client: Any, db_path: str, dlt_dir: str) -> None:
     """Runs the charges resource into a duckdb destination."""
     pipeline = dlt.pipeline(
         pipeline_name="stripe_test",
@@ -147,7 +156,7 @@ def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
     pipeline.run(charges(client, START_DATE, END_DATE))
 
 
-def test_pipeline_merge_is_idempotent(mock_client: MagicMock, tmp_path: Path) -> None:
+def test_pipeline_merge_is_idempotent(mock_client: Any, tmp_path: Path) -> None:
     """Tests that re-running the same charge upserts rather than duplicating."""
     expected_rows = 1
     db_path = str(tmp_path / "stripe.duckdb")
@@ -161,3 +170,33 @@ def test_pipeline_merge_is_idempotent(mock_client: MagicMock, tmp_path: Path) ->
     count = result[0] if result else 0
 
     assert count == expected_rows
+
+
+@pytest.mark.parametrize("minor_units", [True, 1.0, "100"])
+def test_parse_rejects_noninteger_minor_units(
+    charge: dict,
+    minor_units: object,
+) -> None:
+    """Tests that Stripe accepts only integer minor units."""
+    charge["amount"] = minor_units
+
+    with pytest.raises(ValueError, match="Failed to parse Stripe charge"):
+        parse(charge)
+
+
+def test_parse_rejects_unsupported_currency(charge: dict) -> None:
+    """Tests that Stripe rejects non-USD charges."""
+    charge["currency"] = "eur"
+
+    with pytest.raises(ValueError, match="Failed to parse Stripe charge"):
+        parse(charge)
+
+
+def test_parse_error_omits_payload(charge: dict) -> None:
+    """Tests that parse errors omit provider payloads."""
+    charge["id"] = ""
+
+    with pytest.raises(ValueError) as exc_info:
+        parse(charge)
+
+    assert "student@example.com" not in str(exc_info.value)

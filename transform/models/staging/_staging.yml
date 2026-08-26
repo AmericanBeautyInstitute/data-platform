@@ -16,10 +16,34 @@ models:
   - name: stg_paypal__transactions
     columns:
       - name: transaction_id
+        data_tests: [not_null, unique]
+      - name: currency_code
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: ["USD"]}
+      - name: gross_amount_usd
+        data_tests: [not_null]
+      - name: fee_amount_usd
+        data_tests: [not_null]
+      - name: net_amount_usd
         data_tests: [not_null]
   - name: stg_stripe__charges
     columns:
       - name: charge_id
+        data_tests: [not_null, unique]
+      - name: currency
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: ["USD"]}
+      - name: gross_amount_usd
+        data_tests: [not_null]
+      - name: amount_captured_usd
+        data_tests: [not_null]
+      - name: fee_usd
+        data_tests: [not_null]
+      - name: net_usd
         data_tests: [not_null]
   - name: stg_google_sheets__students
     columns:

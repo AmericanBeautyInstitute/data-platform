@@ -5,8 +5,12 @@ from datetime import date, timedelta
 from typing import Any, cast
 
 import dlt as dlthub
-from dagster import AssetExecutionContext, AssetKey, AssetSpec
-from dagster._core.definitions.partition import TimeWindow
+from dagster import (
+    AssetExecutionContext,
+    AssetKey,
+    AssetSpec,
+    TimeWindow,
+)
 from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 from dagster_dlt.translator import DltResourceTranslatorData
 

@@ -2,27 +2,41 @@
 
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
+from decimal import Decimal
+from typing import Annotated, Literal
 
 import dlt
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from stripe import StripeClient
 
 PAGE_SIZE = 100
 PRIMARY_KEY = "charge_id"
+MONEY_DECIMAL_PLACES = 2
+MONEY_MAX_DIGITS = 38
+USD_CENT = Decimal("0.01")
+USD_MINOR_UNITS = Decimal(100)
+
+MoneyAmount = Annotated[
+    Decimal,
+    Field(
+        max_digits=MONEY_MAX_DIGITS,
+        decimal_places=MONEY_DECIMAL_PLACES,
+    ),
+]
 
 
 class Charge(BaseModel):
     """A validated, typed Stripe charge record."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     charge_id: str
     charge_date: date
-    gross_amount_usd: float
-    amount_captured_usd: float
-    fee_usd: float
-    net_usd: float
-    currency: str
+    gross_amount_usd: MoneyAmount
+    amount_captured_usd: MoneyAmount
+    fee_usd: MoneyAmount
+    net_usd: MoneyAmount
+    currency: Literal["USD"]
     status: str
     description: str
     customer_email: str
@@ -37,22 +51,14 @@ class Charge(BaseModel):
             return v
         return datetime.fromtimestamp(v, tz=UTC).date()
 
-    @field_validator(
-        "gross_amount_usd",
-        "amount_captured_usd",
-        "fee_usd",
-        "net_usd",
-        mode="before",
-    )
+    @field_validator("charge_id")
     @classmethod
-    def cents_to_dollars(cls, v: int | float) -> float:
-        """Converts Stripe integer cents to float dollars.
-
-        TODO: Assumes a two-decimal currency (USD). Zero-decimal currencies
-        (e.g. JPY) report whole units, so this would divide incorrectly for
-        non-USD accounts.
-        """
-        return round(int(v) / 100, 2)
+    def validate_charge_id(cls, value: str) -> str:
+        """Returns the canonical nonempty Stripe charge identifier."""
+        charge_id = value.strip()
+        if not charge_id:
+            raise ValueError("charge_id must not be empty")
+        return charge_id
 
 
 @dlt.source(name="stripe")
@@ -94,19 +100,33 @@ def parse(charge: dict) -> Charge:
         return Charge(
             charge_id=charge["id"],
             charge_date=charge["created"],
-            gross_amount_usd=charge["amount"],
-            amount_captured_usd=charge.get("amount_captured", 0),
-            fee_usd=fees.get("fee", 0),
-            net_usd=fees.get("net", 0),
-            currency=charge["currency"],
+            gross_amount_usd=_parse_minor_units(charge["amount"]),
+            amount_captured_usd=_parse_minor_units(charge.get("amount_captured", 0)),
+            fee_usd=_parse_minor_units(fees.get("fee", 0)),
+            net_usd=_parse_minor_units(fees.get("net", 0)),
+            currency=_parse_currency(charge["currency"]),
             status=charge["status"],
             description=charge.get("description") or "",
             customer_email=billing.get("email") or charge.get("receipt_email") or "",
             customer_name=billing.get("name") or "",
             payment_intent_id=charge.get("payment_intent") or "",
         )
-    except (KeyError, ValidationError) as exc:
-        raise ValueError(f"Failed to parse Stripe charge: {charge}") from exc
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Failed to parse Stripe charge") from exc
+
+
+def _parse_minor_units(value: object) -> Decimal:
+    """Returns Stripe integer minor units as exact USD."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError("Stripe minor units must be integers")
+    return (Decimal(value) / USD_MINOR_UNITS).quantize(USD_CENT)
+
+
+def _parse_currency(value: object) -> Literal["USD"]:
+    """Returns canonical USD or raises ValueError."""
+    if not isinstance(value, str) or value.upper() != "USD":
+        raise ValueError("Stripe charge currency must be USD")
+    return "USD"
 
 
 def _fetch(

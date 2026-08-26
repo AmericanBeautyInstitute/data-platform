@@ -5,6 +5,7 @@ with source as (
 renamed as (
     select
         transaction_id,
+        paypal_reference_id,
         transaction_date,
         gross_amount_usd,
         currency_code,

@@ -2,11 +2,19 @@
 
 from dagster import DailyPartitionsDefinition, ScheduleDefinition
 
+from orchestration.defs.ingestion.definitions import ingestion_defs
 from orchestration.defs.ingestion.schedules import (
+    SCHEDULE_NAME,
     START_DATE,
     daily_partitions,
     daily_schedule,
 )
+
+
+def _resolve_daily_schedule() -> ScheduleDefinition:
+    """Returns the resolved daily ingestion schedule."""
+    repository = ingestion_defs.get_repository_def()
+    return repository.get_schedule_def(SCHEDULE_NAME)
 
 
 def test_daily_partitions_is_correct_type():
@@ -26,14 +34,11 @@ def test_daily_partitions_timezone_is_new_york():
 
 def test_daily_schedule_cron_is_6am():
     """Schedule runs at 6am."""
-    assert daily_schedule.cron_schedule == "0 6 * * *"
-
-
-def test_daily_schedule_is_schedule_definition():
-    """daily_schedule is a ScheduleDefinition instance."""
-    assert isinstance(daily_schedule, ScheduleDefinition)
+    resolved_schedule = _resolve_daily_schedule()
+    assert resolved_schedule.cron_schedule == "0 6 * * *"
 
 
 def test_daily_schedule_timezone_is_new_york():
     """Schedule uses America/New_York timezone."""
-    assert daily_schedule.execution_timezone == "America/New_York"
+    resolved_schedule = _resolve_daily_schedule()
+    assert resolved_schedule.execution_timezone == "America/New_York"

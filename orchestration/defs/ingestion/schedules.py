@@ -4,6 +4,7 @@ from dagster import DailyPartitionsDefinition, build_schedule_from_partitioned_j
 
 from orchestration.defs.ingestion.jobs import ingestion_job
 
+SCHEDULE_NAME = "ingestion_job_schedule"
 START_DATE = "2024-01-01"
 
 daily_partitions = DailyPartitionsDefinition(
@@ -13,6 +14,7 @@ daily_partitions = DailyPartitionsDefinition(
 
 daily_schedule = build_schedule_from_partitioned_job(
     ingestion_job,
+    name=SCHEDULE_NAME,
     hour_of_day=6,
     minute_of_hour=0,
 )

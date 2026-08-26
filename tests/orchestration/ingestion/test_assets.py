@@ -3,8 +3,7 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from dagster import AssetKey
-from dagster._core.definitions.partition import TimeWindow
+from dagster import AssetKey, TimeWindow
 
 from orchestration.defs.ingestion.assets import (
     INGESTION_ASSETS,
