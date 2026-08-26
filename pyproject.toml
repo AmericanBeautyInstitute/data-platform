@@ -28,6 +28,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+docs = [
+    "mkdocs-material>=9.6,<10",
+]
 dev = [
     "coverage>=7.9.1",
     "dagster-dg-cli>=1.13.12",

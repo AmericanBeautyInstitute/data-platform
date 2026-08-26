@@ -5,15 +5,15 @@ help:
 
 ci:
 	uv sync --all-groups
-	make reformat
+	make format
 	make lint
-	make type_check
+	make type-check
 	make test
 
 lint:
 	uv run ruff check --fix .
 
-reformat:
+format:
 	uv run ruff format .
 
 setup:
@@ -23,8 +23,13 @@ setup:
 test:
 	uv run pytest --cov
 
-type_check:
-	uv run ty check tests
+type-check:
+	uv run ty check api config orchestration sources tests
+
+################################################################################
+
+docs:
+	uv run --locked --group docs mkdocs build --strict
 
 ################################################################################
 
@@ -50,14 +55,14 @@ deploy:
 ################################################################################
 
 .PHONY: \
-	build \
+	ci \
 	deploy \
 	docs \
+	format \
 	help \
 	lint \
 	mutate \
-	reformat \
 	setup \
 	ssh \
 	test \
-	type_check
+	type-check
