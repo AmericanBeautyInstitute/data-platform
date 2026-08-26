@@ -4,6 +4,20 @@ models:
   - name: mart_enrollment__ad_attribution
     columns:
       - name: date
+        data_tests: [not_null, unique]
+      - name: new_enrollments
+        data_tests: [not_null]
+      - name: total_spend_usd
+        data_tests: [not_null]
+      - name: total_clicks
+        data_tests: [not_null]
+      - name: total_impressions
+        data_tests: [not_null]
+      - name: total_ad_conversions
+        data_tests: [not_null]
+      - name: total_paid_sessions
+        data_tests: [not_null]
+      - name: total_paid_page_views
         data_tests: [not_null]
   - name: mart_finance__revenue_by_program
     columns:
