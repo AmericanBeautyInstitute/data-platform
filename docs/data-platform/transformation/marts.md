@@ -11,12 +11,12 @@ Correlates daily student enrollments with Google Ads spend and Google Analytics 
 - **Grain:** `date`
 - **Sources:** `stg_google_sheets__students`, `stg_google_ads__performance`, `stg_google_analytics__sessions`
 
-## `mart_finance__revenue_by_program`
+## `mart_finance__revenue_by_payment_subject`
 
-Consolidates Stripe and PayPal revenue by month and program. Matches transactions to programs using a fuzzy `LIKE` match on description/subject. Calculates gross revenue, fees, net revenue, and average net per transaction.
+Consolidates successful Stripe and PayPal payments by month, payment source, and transaction subject. Program attribution is omitted until payments carry an explicit program key.
 
-- **Grain:** `(month, program_id, payment_source)`
-- **Sources:** `stg_stripe__charges`, `stg_paypal__transactions`, `stg_google_sheets__programs`
+- **Grain:** `(month, payment_source, transaction_subject)`
+- **Sources:** `stg_stripe__charges`, `stg_paypal__transactions`
 
 ## `mart_inventory__stock_levels`
 

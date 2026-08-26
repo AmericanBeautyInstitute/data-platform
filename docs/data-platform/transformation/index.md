@@ -25,7 +25,7 @@ transform/
     │   └── stg_stripe__charges.sql
     └── marts/
         ├── mart_enrollment__ad_attribution.sql
-        ├── mart_finance__revenue_by_program.sql
+        ├── mart_finance__revenue_by_payment_subject.sql
         └── mart_inventory__stock_levels.sql
 ```
 

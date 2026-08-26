@@ -19,7 +19,7 @@ models:
         data_tests: [not_null]
       - name: total_paid_page_views
         data_tests: [not_null]
-  - name: mart_finance__revenue_by_program
+  - name: mart_finance__revenue_by_payment_subject
     columns:
       - name: month
         data_tests: [not_null]
