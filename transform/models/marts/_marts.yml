@@ -9,6 +9,19 @@ models:
     columns:
       - name: month
         data_tests: [not_null]
+      - name: payment_source
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: ["paypal", "stripe"]}
+      - name: gross_revenue
+        data_tests: [not_null]
+      - name: total_fees
+        data_tests: [not_null]
+      - name: net_revenue
+        data_tests: [not_null]
+      - name: transaction_count
+        data_tests: [not_null]
   - name: mart_inventory__stock_levels
     columns:
       - name: sku_id

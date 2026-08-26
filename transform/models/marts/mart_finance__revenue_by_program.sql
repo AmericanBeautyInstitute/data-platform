@@ -1,51 +1,59 @@
-with stripe_revenue as (
+with payments as (
   select
-    date_trunc(charge_date, month) as month,
-    description as transaction_subject,
-    sum(gross_amount_usd) as gross_revenue,
-    sum(fee_usd) as total_fees,
-    sum(net_usd) as net_revenue,
-    count(*) as transaction_count,
-    'stripe' as payment_source
+    payment_date,
+    gross_amount_usd,
+    fee_amount_usd,
+    net_amount_usd,
+    is_successful,
+    transaction_subject,
+    payment_source
   from {{ ref('stg_stripe__charges') }}
-  where status = 'succeeded'
-  group by date_trunc(charge_date, month), description
+
+  union all
+
+  select
+    payment_date,
+    gross_amount_usd,
+    fee_amount_usd,
+    net_amount_usd,
+    is_successful,
+    transaction_subject,
+    payment_source
+  from {{ ref('stg_paypal__transactions') }}
 ),
 
-paypal_revenue as (
+monthly_revenue as (
   select
-    date_trunc(transaction_date, month) as month,
+    date_trunc(payment_date, month) as month,
+    payment_source,
     transaction_subject,
     sum(gross_amount_usd) as gross_revenue,
-    sum(fee_amount_usd) * -1 as total_fees,
+    sum(fee_amount_usd) as total_fees,
     sum(net_amount_usd) as net_revenue,
-    count(*) as transaction_count,
-    'paypal' as payment_source
-  from {{ ref('stg_paypal__transactions') }}
-  where transaction_status = 'S'
-  group by date_trunc(transaction_date, month), transaction_subject
-),
-
-combined as (
-  select * from stripe_revenue
-  union all
-  select * from paypal_revenue
+    count(*) as transaction_count
+  from payments
+  where is_successful
+  group by
+    date_trunc(payment_date, month),
+    payment_source,
+    transaction_subject
 ),
 
 joined_to_programs as (
   select
-    c.month,
-    c.payment_source,
-    c.transaction_subject,
+    r.month,
+    r.payment_source,
+    r.transaction_subject,
     coalesce(p.program_id, 'unknown') as program_id,
     coalesce(p.program_name, 'unknown') as program_name,
-    c.gross_revenue,
-    c.total_fees,
-    c.net_revenue,
-    c.transaction_count
-  from combined as c
+    r.gross_revenue,
+    r.total_fees,
+    r.net_revenue,
+    r.transaction_count
+  from monthly_revenue as r
   left join {{ ref('stg_google_sheets__programs') }} as p
-    on lower(c.transaction_subject) like concat('%', lower(p.program_name), '%')
+    on lower(r.transaction_subject)
+      like concat('%', lower(p.program_name), '%')
 )
 
 select
@@ -63,4 +71,9 @@ select
     nullif(sum(transaction_count), 0)
   ) as avg_net_per_transaction
 from joined_to_programs
-group by month, program_id, program_name, payment_source, transaction_subject
+group by
+  month,
+  program_id,
+  program_name,
+  payment_source,
+  transaction_subject

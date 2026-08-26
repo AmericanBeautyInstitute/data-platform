@@ -15,13 +15,24 @@ models:
         data_tests: [not_null]
   - name: stg_paypal__transactions
     columns:
-      - name: transaction_id
+      - name: payment_id
         data_tests: [not_null, unique]
+      - name: payment_date
+        data_tests: [not_null]
+      - name: payment_source
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: ["paypal"]}
       - name: currency_code
         data_tests:
           - not_null
           - accepted_values:
               arguments: {values: ["USD"]}
+      - name: source_status
+        data_tests: [not_null]
+      - name: is_successful
+        data_tests: [not_null]
       - name: gross_amount_usd
         data_tests: [not_null]
       - name: fee_amount_usd
@@ -30,20 +41,29 @@ models:
         data_tests: [not_null]
   - name: stg_stripe__charges
     columns:
-      - name: charge_id
+      - name: payment_id
         data_tests: [not_null, unique]
-      - name: currency
+      - name: payment_date
+        data_tests: [not_null]
+      - name: payment_source
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments: {values: ["stripe"]}
+      - name: currency_code
         data_tests:
           - not_null
           - accepted_values:
               arguments: {values: ["USD"]}
+      - name: source_status
+        data_tests: [not_null]
+      - name: is_successful
+        data_tests: [not_null]
       - name: gross_amount_usd
         data_tests: [not_null]
-      - name: amount_captured_usd
+      - name: fee_amount_usd
         data_tests: [not_null]
-      - name: fee_usd
-        data_tests: [not_null]
-      - name: net_usd
+      - name: net_amount_usd
         data_tests: [not_null]
   - name: stg_google_sheets__students
     columns:
