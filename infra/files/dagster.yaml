@@ -7,5 +7,14 @@ code_server:
     host: 127.0.0.1
     port: 4266
 
+concurrency:
+  pools:
+    default_limit: 1
+
+run_monitoring:
+  enabled: true
+  free_slots_after_run_end_seconds: 60
+
 telemetry:
   enabled: false
+

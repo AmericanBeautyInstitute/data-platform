@@ -1,7 +1,9 @@
 """Ingestion layer Dagster definitions."""
 
 from dagster import Definitions
+from dagster_dlt import DagsterDltResource
 
+from orchestration.defs.ingestion.assets import INGESTION_ASSETS
 from orchestration.defs.ingestion.jobs import ingestion_job
 from orchestration.defs.ingestion.resources import (
     bigquery_resource,
@@ -17,11 +19,12 @@ from orchestration.defs.ingestion.resources import (
 from orchestration.defs.ingestion.schedules import daily_schedule
 
 ingestion_defs = Definitions(
-    assets=[],
+    assets=INGESTION_ASSETS,
     jobs=[ingestion_job],
     schedules=[daily_schedule],
     resources={
         "bigquery": bigquery_resource,
+        "dlt": DagsterDltResource(),
         "ingestion_env": ingestion_env,
         "facebook_ads": facebook_ads_resource,
         "gcs": gcs_resource,

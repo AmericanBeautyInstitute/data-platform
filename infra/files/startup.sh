@@ -18,7 +18,7 @@ su - dagster -c "git clone --branch ${branch} ${repo_url} /home/dagster/data-pla
 su - dagster -c 'cd /home/dagster/data-platform && /home/dagster/.local/bin/uv sync --no-dev'
 
 # --- Set up DAGSTER_HOME ---
-mkdir -p /var/dagster/home
+mkdir -p /var/dagster/home /var/dagster/dlt
 cp /home/dagster/data-platform/infra/files/dagster.yaml /var/dagster/home/dagster.yaml
 chown -R dagster:dagster /var/dagster
 
@@ -27,6 +27,7 @@ PROJECT_ID="american-beauty-institute"
 
 cat > /home/dagster/data-platform/.env << ENV
 DAGSTER_HOME=/var/dagster/home
+DLT_DATA_DIR=/var/dagster/dlt
 GCP_PROJECT_ID=$${PROJECT_ID}
 GCS_BUCKET=american-beauty-institute-raw
 GOOGLE_APPLICATION_CREDENTIALS=/etc/gcp/service-account.json

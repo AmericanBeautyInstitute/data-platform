@@ -1,6 +1,6 @@
 """Ingestion layer Dagster schedule definitions."""
 
-from dagster import DailyPartitionsDefinition, ScheduleDefinition
+from dagster import DailyPartitionsDefinition, build_schedule_from_partitioned_job
 
 from orchestration.defs.ingestion.jobs import ingestion_job
 
@@ -11,8 +11,8 @@ daily_partitions = DailyPartitionsDefinition(
     timezone="America/New_York",
 )
 
-daily_schedule = ScheduleDefinition(
-    job=ingestion_job,
-    cron_schedule="0 6 * * *",
-    execution_timezone="America/New_York",
+daily_schedule = build_schedule_from_partitioned_job(
+    ingestion_job,
+    hour_of_day=6,
+    minute_of_hour=0,
 )
