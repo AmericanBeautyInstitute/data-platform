@@ -20,4 +20,4 @@ class Settings(BaseSettings):
 @functools.lru_cache
 def get_settings() -> Settings:
     """Returns cached application settings."""
-    return Settings()
+    return Settings()  # ty: ignore[missing-argument]

@@ -3,7 +3,7 @@
 from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 import dlt
 from dlt.sources.helpers.rest_client import RESTClient
@@ -126,12 +126,15 @@ def _parse_money(money: object, *, required: bool) -> Decimal:
         return ZERO_USD
     if not isinstance(money, dict):
         raise TypeError("PayPal money must be an object")
-    if money.get("currency_code") != "USD":
+
+    money_by_field = cast(dict[str, object], money)
+    if money_by_field.get("currency_code") != "USD":
         raise ValueError("PayPal money currency must be USD")
 
-    value = money["value"]
+    value = money_by_field["value"]
     if not isinstance(value, str):
         raise TypeError("PayPal money value must be a string")
+
     try:
         amount = Decimal(value)
     except InvalidOperation as exc:
@@ -139,8 +142,13 @@ def _parse_money(money: object, *, required: bool) -> Decimal:
 
     if not amount.is_finite():
         raise ValueError("PayPal money value must be finite")
-    if amount.as_tuple().exponent < -MONEY_DECIMAL_PLACES:
+
+    exponent = amount.as_tuple().exponent
+    if not isinstance(exponent, int):
+        raise ValueError("PayPal money value must be finite")
+    if exponent < -MONEY_DECIMAL_PLACES:
         raise ValueError("PayPal money value must be cent-exact")
+
     try:
         return amount.quantize(USD_CENT)
     except InvalidOperation as exc:

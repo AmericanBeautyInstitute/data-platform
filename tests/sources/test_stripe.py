@@ -10,6 +10,7 @@ import duckdb
 import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
+from stripe import Charge as StripeCharge
 
 from sources.stripe import (
     _fetch,
@@ -53,7 +54,9 @@ def _mock_client(
     """Returns a mocked Stripe client with one response page."""
     client = mocker.MagicMock()
     response = mocker.MagicMock()
-    response.data = page
+    response.data = [
+        StripeCharge.construct_from(payload, "sk_test") for payload in page
+    ]
     response.has_more = has_more
     client.charges.list.return_value = response
     return client
@@ -75,8 +78,14 @@ def test_fetch_paginates_with_cursor(
     expected_rows = 2
     second = {**charge, "id": "ch_456"}
     client = mocker.MagicMock()
-    first_page = mocker.MagicMock(data=[charge], has_more=True)
-    second_page = mocker.MagicMock(data=[second], has_more=False)
+    first_page = mocker.MagicMock(
+        data=[StripeCharge.construct_from(charge, "sk_test")],
+        has_more=True,
+    )
+    second_page = mocker.MagicMock(
+        data=[StripeCharge.construct_from(second, "sk_test")],
+        has_more=False,
+    )
     client.charges.list.side_effect = [first_page, second_page]
 
     rows = list(_fetch(client, START_DATE, END_DATE))

@@ -125,9 +125,9 @@ def _fetch(
     snapshot_date: date,
 ) -> Iterator[dict[str, str]]:
     """Yields validated records from one spreadsheet tab."""
+    spreadsheets = client.spreadsheets()  # ty: ignore[unresolved-attribute]
     response = (
-        client.spreadsheets()
-        .values()
+        spreadsheets.values()
         .get(spreadsheetId=spreadsheet_id, range=contract.sheet_name)
         .execute()
     )
@@ -164,15 +164,20 @@ def _parse_row(
     row_number: int,
 ) -> dict[str, str]:
     """Returns one width-checked row keyed by validated headers."""
-    if not isinstance(row, list) or not all(isinstance(cell, str) for cell in row):
-        raise ValueError(f"{contract.sheet_name} row {row_number} must contain strings")
-    if len(row) > len(headers):
+    string_row = _validate_string_list(
+        row,
+        error_message=(f"{contract.sheet_name} row {row_number} must contain strings"),
+    )
+    if len(string_row) > len(headers):
         raise ValueError(
             f"{contract.sheet_name} row {row_number} has more cells than headers"
         )
 
-    missing_cell_count = len(headers) - len(row)
-    padded_row = [*row, *("" for _ in range(missing_cell_count))]
+    missing_cell_count = len(headers) - len(string_row)
+    padded_row = [
+        *string_row,
+        *("" for _ in range(missing_cell_count)),
+    ]
     record = dict(zip(headers, padded_row, strict=True))
 
     record_id = record[contract.record_id_header].strip()
@@ -191,12 +196,12 @@ def _validate_headers(
     contract: _SheetSpec,
 ) -> tuple[str, ...]:
     """Returns exact, unique headers or raises ValueError."""
-    if not isinstance(raw_headers, list) or not all(
-        isinstance(header, str) for header in raw_headers
-    ):
-        raise ValueError(f"{contract.sheet_name} headers must be strings")
-
-    headers = tuple(raw_headers)
+    headers = tuple(
+        _validate_string_list(
+            raw_headers,
+            error_message=(f"{contract.sheet_name} headers must be strings"),
+        )
+    )
     if any(not header or header != header.strip() for header in headers):
         raise ValueError(f"{contract.sheet_name} headers must be nonempty and trimmed")
     if len(headers) != len(set(headers)):
@@ -214,3 +219,21 @@ def _validate_headers(
         )
 
     return headers
+
+
+def _validate_string_list(
+    value: object,
+    *,
+    error_message: str,
+) -> list[str]:
+    """Returns a list containing only validated strings."""
+    if not isinstance(value, list):
+        raise ValueError(error_message)
+
+    strings: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError(error_message)
+        strings.append(item)
+
+    return strings

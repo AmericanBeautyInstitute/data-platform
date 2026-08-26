@@ -7,7 +7,9 @@ from typing import Annotated, Literal
 
 import dlt
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from stripe import Charge as StripeCharge
 from stripe import StripeClient
+from stripe.params import ChargeListParams
 
 PAGE_SIZE = 100
 PRIMARY_KEY = "charge_id"
@@ -133,27 +135,32 @@ def _fetch(
     client: StripeClient,
     start_date: date,
     end_date: date,
-) -> Iterator[dict]:
-    """Yields raw Stripe charge dicts, paginating over the created date range."""
-    created = {
-        "gte": _to_timestamp(start_date),
-        "lte": _to_timestamp(end_date, end_of_day=True),
-    }
-    starting_after = None
+) -> Iterator[dict[str, object]]:
+    """Yields raw Stripe charge payloads for the created date range."""
+    starting_after: str | None = None
+
     while True:
-        params: dict = {
-            "created": created,
+        params: ChargeListParams = {
+            "created": {
+                "gte": _to_timestamp(start_date),
+                "lte": _to_timestamp(end_date, end_of_day=True),
+            },
             "limit": PAGE_SIZE,
             "expand": ["data.balance_transaction"],
         }
-        if starting_after:
+        if starting_after is not None:
             params["starting_after"] = starting_after
+
         response = client.charges.list(params=params)
-        rows = [dict(charge) for charge in response.data]
-        yield from rows
+        rows: list[StripeCharge] = response.data
+
+        for stripe_charge in rows:
+            yield stripe_charge.to_dict_recursive()
+
         if not response.has_more or not rows:
             break
-        starting_after = rows[-1]["id"]
+
+        starting_after = rows[-1].id
 
 
 def _to_timestamp(d: date, end_of_day: bool = False) -> int:
