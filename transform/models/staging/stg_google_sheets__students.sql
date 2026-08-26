@@ -1,5 +1,5 @@
--- Keeps only the most recent snapshot: the sheet is append-loaded, so each
--- snapshot_date is a full copy. Students are a current-state dimension.
+-- Keeps only the most recent snapshot from the merge-keyed daily history.
+-- Each snapshot_date is a full copy; students are a current-state dimension.
 with source as (
     select * from {{ source('raw', 'google_sheets_students') }}
 ),

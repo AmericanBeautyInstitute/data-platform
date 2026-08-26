@@ -131,7 +131,12 @@ def test_parse_fails_loud_on_missing_id(charge: dict) -> None:
 def test_pipeline_loads_typed_rows(mock_client: Any, tmp_path: Path) -> None:
     """Tests that the pipeline lands typed columns in the destination."""
     expected_rows = 1
-    expected_first_row = ("ch_123", date(2024, 1, 15), 100.00, 3.20)
+    expected_first_row = (
+        "ch_123",
+        date(2024, 1, 15),
+        Decimal("100.00"),
+        Decimal("3.20"),
+    )
     db_path = str(tmp_path / "stripe.duckdb")
     _run_pipeline(mock_client, db_path, str(tmp_path / "dlt"))
 

@@ -1,5 +1,4 @@
--- Retains every snapshot: inventory is a daily stock-level time series, grained
--- on (sku_id, snapshot_date) downstream.
+-- Retains the merge-keyed daily history at (sku_id, snapshot_date) grain.
 with source as (
     select * from {{ source('raw', 'google_sheets_inventory') }}
 ),

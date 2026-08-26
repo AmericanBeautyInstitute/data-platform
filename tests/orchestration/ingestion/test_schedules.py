@@ -7,7 +7,6 @@ from orchestration.defs.ingestion.schedules import (
     SCHEDULE_NAME,
     START_DATE,
     daily_partitions,
-    daily_schedule,
 )
 
 

@@ -2,98 +2,32 @@
 
 from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock
+from typing import Any
 
 import dlt
 import duckdb
 import pytest
+from pytest_mock import MockerFixture
 
-from sources.google_sheets import (
-    _fetch,
-    inventory,
-    programs,
-    students,
-)
+from sources.google_sheets import _STUDENTS, _fetch, students
 
 SPREADSHEET_ID = "mock-spreadsheet-id"
 SNAPSHOT_DATE = date(2024, 1, 1)
+EXPECTED_STUDENT_ROWS = 2
 
 
-@pytest.fixture
-def mock_client() -> MagicMock:
-    """Sheets API client returning two rows with name and status columns."""
-    return _mock_client([["name", "status"], ["Alice", "active"], ["Bob", "inactive"]])
-
-
-def _mock_client(values: list) -> MagicMock:
-    """Builds a Sheets API client returning the given values."""
-    client = MagicMock()
+def _mock_client(
+    mocker: MockerFixture,
+    values: list[list[str]],
+) -> Any:
+    """Returns a Sheets API mock serving the supplied rows."""
+    client = mocker.MagicMock()
     client.spreadsheets().values().get().execute.return_value = {"values": values}
     return client
 
 
-def test_fetch_handles_short_rows() -> None:
-    """Tests that rows shorter than the header are zipped without error."""
-    client = _mock_client([["name", "status"], ["Alice"]])
-
-    rows = list(_fetch(client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
-
-    assert rows[0] == {"name": "Alice", "snapshot_date": SNAPSHOT_DATE.isoformat()}
-
-
-def test_fetch_keys_rows_by_header(mock_client: MagicMock) -> None:
-    """Tests that each row is a dict keyed by the header row."""
-    rows = list(_fetch(mock_client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
-
-    assert rows[0]["name"] == "Alice"
-    assert rows[0]["status"] == "active"
-
-
-def test_fetch_returns_empty_for_empty_sheet() -> None:
-    """Tests that an empty sheet yields no rows."""
-    client = _mock_client([])
-
-    rows = list(_fetch(client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
-
-    assert rows == []
-
-
-def test_fetch_stamps_snapshot_date(mock_client: MagicMock) -> None:
-    """Tests that each row carries snapshot_date as an ISO string."""
-    expected_date = SNAPSHOT_DATE.isoformat()
-
-    rows = list(_fetch(mock_client, SPREADSHEET_ID, "students", SNAPSHOT_DATE))
-
-    assert all(row["snapshot_date"] == expected_date for row in rows)
-
-
-def test_inventory_uses_inventory_sheet_name(mock_client: MagicMock) -> None:
-    """Tests that inventory passes 'inventory' as the range to the Sheets API."""
-    list(inventory(mock_client, SPREADSHEET_ID, SNAPSHOT_DATE))
-
-    mock_client.spreadsheets().values().get.assert_called_with(
-        spreadsheetId=SPREADSHEET_ID, range="inventory"
-    )
-
-
-def test_pipeline_appends_on_second_run(mock_client: MagicMock, tmp_path: Path) -> None:
-    """Tests that a second run appends rows rather than replacing them."""
-    expected_rows = 4
-    db_path = str(tmp_path / "sheets.duckdb")
-    dlt_dir = str(tmp_path / "dlt")
-
-    _run_pipeline(mock_client, db_path, dlt_dir)
-    _run_pipeline(mock_client, db_path, dlt_dir)
-
-    conn = duckdb.connect(db_path)
-    result = conn.execute("SELECT count(*) FROM raw.google_sheets_students").fetchone()
-    count = result[0] if result else 0
-
-    assert count == expected_rows
-
-
-def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
-    """Runs the students resource into a duckdb destination."""
+def _run_pipeline(client: Any, db_path: str, dlt_dir: str) -> None:
+    """Runs the students resource into DuckDB."""
     pipeline = dlt.pipeline(
         pipeline_name="sheets_test",
         destination=dlt.destinations.duckdb(db_path),
@@ -103,36 +37,129 @@ def _run_pipeline(client: MagicMock, db_path: str, dlt_dir: str) -> None:
     pipeline.run(students(client, SPREADSHEET_ID, SNAPSHOT_DATE))
 
 
-def test_pipeline_loads_rows_with_snapshot_date(
-    mock_client: MagicMock, tmp_path: Path
+@pytest.fixture
+def student_values() -> list[list[str]]:
+    """Returns a header and two valid student rows."""
+    return [
+        list(_STUDENTS.headers),
+        [
+            "student-1",
+            "Alice",
+            "Adams",
+            "alice@example.com",
+            "555-0101",
+            "program-1",
+            "active",
+            "2024-01-01",
+            "2024-06-01",
+            "",
+        ],
+        [
+            "student-2",
+            "Bob",
+            "Brown",
+            "bob@example.com",
+            "555-0102",
+            "program-1",
+            "inactive",
+            "2024-01-02",
+            "2024-06-02",
+            "2024-05-31",
+        ],
+    ]
+
+
+def test_fetch_pads_omitted_trailing_cells(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
 ) -> None:
-    """Tests that the pipeline lands rows with snapshot_date in the destination."""
-    expected_rows = 2
+    """Tests that omitted trailing cells become empty strings."""
+    student_values[1].pop()
+    client = _mock_client(mocker, student_values)
+
+    rows = list(_fetch(client, SPREADSHEET_ID, _STUDENTS, SNAPSHOT_DATE))
+
+    assert rows[0]["actual_grad_date"] == ""
+    assert rows[0]["snapshot_date"] == SNAPSHOT_DATE.isoformat()
+
+
+def test_fetch_rejects_duplicate_headers(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
+) -> None:
+    """Tests that duplicate headers fail validation."""
+    student_values[0][-1] = "student_id"
+    client = _mock_client(mocker, student_values)
+
+    with pytest.raises(ValueError, match="headers must be unique"):
+        list(_fetch(client, SPREADSHEET_ID, _STUDENTS, SNAPSHOT_DATE))
+
+
+def test_fetch_rejects_duplicate_record_ids(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
+) -> None:
+    """Tests that a snapshot cannot contain duplicate student IDs."""
+    student_values[2][0] = student_values[1][0]
+    client = _mock_client(mocker, student_values)
+
+    with pytest.raises(ValueError, match="duplicates student_id"):
+        list(_fetch(client, SPREADSHEET_ID, _STUDENTS, SNAPSHOT_DATE))
+
+
+def test_fetch_rejects_missing_headers(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
+) -> None:
+    """Tests that missing contract headers fail validation."""
+    student_values[0].pop()
+    client = _mock_client(mocker, student_values)
+
+    with pytest.raises(ValueError, match="headers do not match"):
+        list(_fetch(client, SPREADSHEET_ID, _STUDENTS, SNAPSHOT_DATE))
+
+
+def test_fetch_rejects_missing_record_id(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
+) -> None:
+    """Tests that every snapshot row has an identifier."""
+    student_values[1][0] = " "
+    client = _mock_client(mocker, student_values)
+
+    with pytest.raises(ValueError, match="requires student_id"):
+        list(_fetch(client, SPREADSHEET_ID, _STUDENTS, SNAPSHOT_DATE))
+
+
+def test_fetch_rejects_rows_wider_than_headers(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
+) -> None:
+    """Tests that extra cells cannot be discarded silently."""
+    student_values[1].append("unexpected")
+    client = _mock_client(mocker, student_values)
+
+    with pytest.raises(ValueError, match="more cells than headers"):
+        list(_fetch(client, SPREADSHEET_ID, _STUDENTS, SNAPSHOT_DATE))
+
+
+def test_pipeline_merge_is_idempotent(
+    mocker: MockerFixture,
+    student_values: list[list[str]],
+    tmp_path: Path,
+) -> None:
+    """Tests that rerunning a snapshot preserves its row count."""
+    client = _mock_client(mocker, student_values)
     db_path = str(tmp_path / "sheets.duckdb")
-    _run_pipeline(mock_client, db_path, str(tmp_path / "dlt"))
+    dlt_dir = str(tmp_path / "dlt")
 
-    conn = duckdb.connect(db_path)
-    rows = conn.execute(
-        "SELECT name, snapshot_date FROM raw.google_sheets_students ORDER BY name"
-    ).fetchall()
+    _run_pipeline(client, db_path, dlt_dir)
+    _run_pipeline(client, db_path, dlt_dir)
 
-    assert len(rows) == expected_rows
-    assert rows[0] == ("Alice", SNAPSHOT_DATE.isoformat())
+    with duckdb.connect(db_path) as connection:
+        row = connection.execute(
+            "SELECT count(*) FROM raw.google_sheets_students"
+        ).fetchone()
 
-
-def test_programs_uses_programs_sheet_name(mock_client: MagicMock) -> None:
-    """Tests that programs passes 'programs' as the range to the Sheets API."""
-    list(programs(mock_client, SPREADSHEET_ID, SNAPSHOT_DATE))
-
-    mock_client.spreadsheets().values().get.assert_called_with(
-        spreadsheetId=SPREADSHEET_ID, range="programs"
-    )
-
-
-def test_students_uses_students_sheet_name(mock_client: MagicMock) -> None:
-    """Tests that students passes 'students' as the range to the Sheets API."""
-    list(students(mock_client, SPREADSHEET_ID, SNAPSHOT_DATE))
-
-    mock_client.spreadsheets().values().get.assert_called_with(
-        spreadsheetId=SPREADSHEET_ID, range="students"
-    )
+    assert row is not None
+    assert row[0] == EXPECTED_STUDENT_ROWS

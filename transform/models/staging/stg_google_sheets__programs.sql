@@ -1,5 +1,5 @@
--- Keeps only the most recent snapshot: the sheet is append-loaded, so each
--- snapshot_date is a full copy. Programs are a current-state dimension.
+-- Keeps only the most recent snapshot from the merge-keyed daily history.
+-- Each snapshot_date is a full copy; programs are a current-state dimension.
 with source as (
     select * from {{ source('raw', 'google_sheets_programs') }}
 ),

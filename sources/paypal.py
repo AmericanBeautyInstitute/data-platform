@@ -128,7 +128,7 @@ def _parse_money(money: object, *, required: bool) -> Decimal:
         raise TypeError("PayPal money must be an object")
     if money.get("currency_code") != "USD":
         raise ValueError("PayPal money currency must be USD")
-    
+
     value = money["value"]
     if not isinstance(value, str):
         raise TypeError("PayPal money value must be a string")
